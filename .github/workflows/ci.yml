@@ -1,0 +1,74 @@
+name: CI
+
+# Verifies the template can be scaffolded and that the result passes its own
+# `./gradlew check smokeTest` gates. Two jobs run in parallel:
+#
+#   bash-scaffold  — runs tests/ci-smoke.sh end-to-end (the v0 fallback path).
+#   jbang-scaffold — runs the JBang Init subcommand with --verify (the
+#                    supported scaffold flow). Mirrors the bash flow but
+#                    exercises picocli arg parsing and the residual-check
+#                    pattern.
+#
+# Both jobs install JDK 21 alongside JDK 25 because the scaffolded project's
+# smokeTest forks a child Gradle 8.14.3 that cannot host JDK 25.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  bash-scaffold:
+    name: Scaffold via tests/ci-smoke.sh
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: |
+            21
+            25
+      - uses: gradle/actions/setup-gradle@v4
+      - name: tests/ci-smoke.sh
+        run: ./tests/ci-smoke.sh /tmp/recipe-template-ci-smoke
+
+  jbang-scaffold:
+    name: Scaffold via jbang init --verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: |
+            21
+            25
+      - uses: gradle/actions/setup-gradle@v4
+      - uses: jbangdev/setup-jbang@main
+      - name: jbang init --verify
+        run: |
+          jbang jbang/RecipeScaffold.java init \
+            --group=io.github.acme \
+            --artifact=acme-rewrite-recipes \
+            --package=io.github.acme \
+            --initial-version=0.1 \
+            --recipe-name="Acme Recipes" \
+            --recipe-description="OpenRewrite recipes scaffolded from openrewrite-recipe-template-fhw" \
+            --github-org=acme \
+            --github-repo=acme-rewrite-recipes \
+            --author-id=acmebot \
+            --author-name="Acme Bot" \
+            --author-email=bot@acme.example \
+            -d /tmp/recipe-template-jbang-ci \
+            --force \
+            --verify

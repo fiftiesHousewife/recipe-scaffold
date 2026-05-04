@@ -1,0 +1,42 @@
+[versions]
+openrewrite = "7.30.0"
+openrewrite-bom = "3.28.0"
+junit = "6.1.0-M1"
+assertj = "4.0.0-M1"
+jspecify = "1.0.0"
+lombok = "1.18.44"
+versions = "0.53.0"
+maven-publish = "0.36.0"
+
+[libraries]
+# OpenRewrite
+openrewrite-recipe-bom = { module = "org.openrewrite.recipe:rewrite-recipe-bom", version.ref = "openrewrite-bom" }
+openrewrite-java = { module = "org.openrewrite:rewrite-java" }
+openrewrite-toml = { module = "org.openrewrite:rewrite-toml" }
+openrewrite-properties = { module = "org.openrewrite:rewrite-properties" }
+openrewrite-java8 = { module = "org.openrewrite:rewrite-java-8" }
+openrewrite-java11 = { module = "org.openrewrite:rewrite-java-11" }
+openrewrite-java17 = { module = "org.openrewrite:rewrite-java-17" }
+openrewrite-java21 = { module = "org.openrewrite:rewrite-java-21" }
+openrewrite-java25 = { module = "org.openrewrite:rewrite-java-25" }
+openrewrite-gradle = { module = "org.openrewrite:rewrite-gradle" }
+openrewrite-gradle-tooling-api = { module = "org.openrewrite.gradle.tooling:model" }
+openrewrite-test = { module = "org.openrewrite:rewrite-test" }
+
+# Testing
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher", version.ref = "junit" }
+assertj-core = { module = "org.assertj:assertj-core", version.ref = "assertj" }
+
+# JSpecify for nullability annotations
+jspecify = { module = "org.jspecify:jspecify", version.ref = "jspecify" }
+
+# Lombok — recipe authors use @Value / @EqualsAndHashCode to keep recipe classes terse.
+# Yes, an SLF4J-migration recipe project still uses Lombok internally — that's the
+# standard pattern in the OpenRewrite ecosystem (see moderneinc/rewrite-recipe-starter).
+lombok = { module = "org.projectlombok:lombok", version.ref = "lombok" }
+
+[plugins]
+openrewrite = { id = "org.openrewrite.rewrite", version.ref = "openrewrite" }
+versions = { id = "com.github.ben-manes.versions", version.ref = "versions" }
+maven-publish = { id = "com.vanniktech.maven.publish", version.ref = "maven-publish" }

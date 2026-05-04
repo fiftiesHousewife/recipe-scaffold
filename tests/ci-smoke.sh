@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+# Scaffold a project from template/, substitute placeholders, run the gates.
+# This is the v0 stand-in for what the JBang `init` subcommand will do.
+set -euo pipefail
+
+HERE="$(cd "$(dirname "$0")"/.. && pwd)"
+TPL="$HERE/template"
+OUT="${1:-/tmp/recipe-template-ci-smoke}"
+
+if [ -e "$OUT" ]; then
+    echo "removing existing $OUT"
+    rm -rf "$OUT"
+fi
+
+# Sample identity for the scaffolded project. Pick anything that round-trips
+# through the placeholders cleanly.
+GROUP="io.github.acme"
+ARTIFACT="acme-rewrite-recipes"
+ROOT_PACKAGE="io.github.acme"
+ROOT_PACKAGE_PATH="io/github/acme"
+INITIAL_VERSION="0.1"
+RECIPE_NAME="Acme Recipes"
+RECIPE_DESCRIPTION="OpenRewrite recipes scaffolded from openrewrite-recipe-template-fhw"
+GITHUB_ORG="acme"
+GITHUB_REPO="acme-rewrite-recipes"
+AUTHOR_ID="acmebot"
+AUTHOR_NAME="Acme Bot"
+AUTHOR_EMAIL="bot@acme.example"
+JAVA_TARGET_MAIN="17"
+JAVA_TARGET_TESTS="25"
+REWRITE_PLUGIN_VERSION="7.30.0"
+
+echo "scaffolding $OUT from $TPL"
+cp -R "$TPL" "$OUT"
+
+# Rename the __ROOT_PACKAGE__ marker dirs to the chosen package path.
+for d in "$OUT"/src/main/java "$OUT"/src/test/java \
+         "$OUT"/src/integrationTest/java "$OUT"/src/smokeTest/java; do
+    mkdir -p "$d/$ROOT_PACKAGE_PATH"
+    # Move everything inside __ROOT_PACKAGE__ (recipes/ or smoketest/) into the new path.
+    mv "$d/__ROOT_PACKAGE__"/* "$d/$ROOT_PACKAGE_PATH/"
+    rmdir "$d/__ROOT_PACKAGE__"
+done
+
+# Substitute placeholders. macOS/BSD sed needs the empty '' arg after -i.
+SED_INPLACE=("-i" "")
+if sed --version >/dev/null 2>&1; then
+    # GNU sed: drop the empty arg.
+    SED_INPLACE=("-i")
+fi
+
+find "$OUT" -type f \( -name "*.kts" -o -name "*.toml" -o -name "*.java" \
+        -o -name "*.yml" -o -name "*.md" -o -name "*.properties" \
+        -o -name ".gitignore" \) -print0 \
+    | xargs -0 sed "${SED_INPLACE[@]}" \
+        -e "s|{{group}}|$GROUP|g" \
+        -e "s|{{artifact}}|$ARTIFACT|g" \
+        -e "s|{{rootPackage}}|$ROOT_PACKAGE|g" \
+        -e "s|{{initialVersion}}|$INITIAL_VERSION|g" \
+        -e "s|{{recipeName}}|$RECIPE_NAME|g" \
+        -e "s|{{recipeDescription}}|$RECIPE_DESCRIPTION|g" \
+        -e "s|{{githubOrg}}|$GITHUB_ORG|g" \
+        -e "s|{{githubRepo}}|$GITHUB_REPO|g" \
+        -e "s|{{authorId}}|$AUTHOR_ID|g" \
+        -e "s|{{authorName}}|$AUTHOR_NAME|g" \
+        -e "s|{{authorEmail}}|$AUTHOR_EMAIL|g" \
+        -e "s|{{javaTargetMain}}|$JAVA_TARGET_MAIN|g" \
+        -e "s|{{javaTargetTests}}|$JAVA_TARGET_TESTS|g" \
+        -e "s|{{rewritePluginVersion}}|$REWRITE_PLUGIN_VERSION|g" \
+        -e "s|__ROOT_PACKAGE__|$ROOT_PACKAGE|g"
+
+# Sanity check: any unsubstituted placeholders remaining? Match our `{{name}}`
+# only — not GitHub Actions `${{ secrets.X }}` expressions in workflow files.
+if grep -RIn -E '(^|[^$])\{\{[a-zA-Z][a-zA-Z0-9]*\}\}|__ROOT_PACKAGE__' "$OUT" 2>/dev/null; then
+    echo "FAIL: unsubstituted placeholder(s) above"
+    exit 1
+fi
+
+echo "running ./gradlew check smokeTest in $OUT"
+cd "$OUT"
+./gradlew check smokeTest
+
+echo "OK: scaffolded project at $OUT passed check + smokeTest"

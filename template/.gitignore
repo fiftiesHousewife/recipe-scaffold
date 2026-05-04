@@ -1,0 +1,62 @@
+.gradle
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### IntelliJ IDEA ###
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
+!**/src/main/**/out/
+!**/src/test/**/out/
+
+### Eclipse ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+bin/
+!**/src/main/**/bin/
+!**/src/test/**/bin/
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+### VS Code ###
+.vscode/
+
+### Mac OS ###
+.DS_Store
+
+### Gradle ###
+.gradle/
+**/build/
+!src/**/build/
+
+### OpenRewrite ###
+.rewrite/
+
+### OpenRewrite Generated Files ###
+# JAR files downloaded by downloadRecipeDependencies task
+src/main/resources/META-INF/rewrite/*.jar
+
+### Local Maven ###
+# Don't ignore locally published artifacts in ~/.m2
+
+### Claude Code user-local state (project skills are committed; settings are per-user) ###
+.claude/settings.local.json
+
+### Clean Code plugin: skills installed by ./gradlew installSkills are not committed ###
+.claude/skills/SKILLS.md
+.claude/skills/.thresholds-hash
+.claude/skills/clean-code-*/

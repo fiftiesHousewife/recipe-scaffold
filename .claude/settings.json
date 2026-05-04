@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./tests/ci-smoke.sh:*)",
+      "Bash(javac --release 17 -cp /tmp/picocli-cache/picocli-*.jar -d /tmp/recipescaffold-build *)",
+      "Bash(java -cp /tmp/recipescaffold-build:/tmp/picocli-cache/picocli-*.jar recipescaffold *)",
+      "Bash(jbang jbang/RecipeScaffold.java *)",
+      "Bash(jbang ./jbang/RecipeScaffold.java *)",
+      "Bash(java -cp /tmp/recipescaffold-build:/tmp/picocli-cache/picocli-*.jar RecipeScaffold *)",
+      "Bash(curl -fsSL -o /tmp/picocli-cache/* https://repo1.maven.org/maven2/info/picocli/picocli/*)",
+      "Bash(diff -r --brief *)",
+      "Bash(rm -rf /tmp/recipe-template-jbang-smoke)",
+      "Bash(rm -rf /tmp/recipescaffold-build)",
+      "Read(//tmp/recipe-template-*/**)",
+      "Read(//tmp/recipescaffold-build/**)"
+    ]
+  }
+}

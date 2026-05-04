@@ -1,0 +1,30 @@
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+
+# macOS
+.DS_Store
+
+# Per-user Claude Code state (project skills are committed; user overrides are not)
+.claude/settings.local.json
+
+# Clean Code plugin: skills installed by ./gradlew installSkills are not committed
+.claude/skills/SKILLS.md
+.claude/skills/.thresholds-hash
+.claude/skills/clean-code-*/
+
+# Recipe-authoring skills at repo root drift from template/.claude/skills/ — single
+# source of truth lives in template/. Symlink or copy on demand.
+.claude/skills/new-gradle-project/
+.claude/skills/new-recipe/
+.claude/skills/recipe-testing/
+.claude/skills/smoke-test/
+
+# Throwaway artifacts (these live under /tmp on disk, listed here for clarity)
+# /tmp/recipescaffold-build/
+# /tmp/picocli-cache/
+# /tmp/recipe-template-jbang-smoke/
+# /tmp/recipe-template-ci-smoke/

@@ -1,0 +1,9 @@
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: {{rootPackage}}.ExampleRecipe
+displayName: Example recipe (composed)
+description: Placeholder composed recipe shipped by the template scaffold. Replace with your own.
+tags:
+  - example
+recipeList:
+  - {{rootPackage}}.recipes.ExampleRecipe
