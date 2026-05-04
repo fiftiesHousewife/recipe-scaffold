@@ -4,6 +4,8 @@
 //JAVA 17+
 //DEPS info.picocli:picocli:4.7.7
 
+package recipescaffold;
+
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.DirectoryStream;

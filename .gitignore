@@ -8,6 +8,12 @@
 # macOS
 .DS_Store
 
+# Root Gradle build output (TestKit harness — see build.gradle.kts).
+# Note: template/build/ and template/.gradle/ stay under the template's
+# own ignore rules; this only excludes the harness build at repo root.
+/build/
+/.gradle/
+
 # Per-user Claude Code state (project skills are committed; user overrides are not)
 .claude/settings.local.json
 

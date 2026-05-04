@@ -14,7 +14,8 @@ This repo extracts the build conventions, test harnesses, and pre-publish smoke 
 - **B11.3 done (2026-05-04).** `add-recipe` JBang subcommand. Reads `.recipescaffold.yml` (written by `init`) for project identity, expands `template/snippets/recipe-class-{java,scanning}.template` + `recipe-test.template` into `src/main/java/<pkg>/recipes/<Name>.java` (+ test). `--type java` and `--type scanning` ship; `yaml` and `refaster` queued. CI exercises both `bash-scaffold + add-recipe (java + scanning) + ./gradlew check` and `jbang init --verify + add-recipe (java + scanning) + ./gradlew check`.
 - **B11.3.1 yaml done (2026-05-04).** `add-recipe --type yaml` writes a composition manifest to `src/main/resources/META-INF/rewrite/<kebab>.yml` plus an `Environment.builder().scanRuntimeClasspath()` test under `src/test/java/<pkg>/<Name>Test.java`. `AddRecipe` was refactored to a `RecipeKind` record dispatch (`mainSnippet`, `testSnippet`, `mainInResources`); two new snippet-time placeholders shipped (`{{recipeId}}`, `{{recipeKebab}}`).
 - **B11.3.1 refaster done (2026-05-04).** `add-recipe --type refaster` writes an outer-holder class with one nested `@RecipeDescriptor` template-pair under `src/main/java/<pkg>/<Name>.java` plus a test that instantiates the *generated* `<Name>Recipes` aggregate. Template build wiring added: `rewrite-templating` (annotationProcessor + implementation), `error_prone_core` (compileOnly with the canonical excludes), `-Arewrite.javaParserClasspathFrom=resources` on `compileJava`. All four `--type` values (java, scanning, yaml, refaster) now have CI cells in both the bash- and JBang-scaffold jobs.
-- **B11.4+ later.** `verify-gates` thin wrapper, end-to-end CI for the template repo, `--upgrade-skills`, B11.3.2 (recipe-method-test.template), in-repo TestKit harness for sandbox-friendly local E2E.
+- **TestKit harness done (2026-05-04).** Repo now has a Gradle build of its own (`build.gradle.kts`, `settings.gradle.kts`, `gradle/libs.versions.toml`, wrapper assets, `gradle.properties`). Main source set points at `jbang/` so the JBang flow keeps working; `jbang/RecipeScaffold.java` gained `package recipescaffold;` so a packaged test can import it. `src/test/java/recipescaffold/ScaffoldHarnessTest.java` drives `Init` + `AddRecipe` (all four `--type` values) into a `@TempDir`, then runs `GradleRunner` against the scaffolded project with `-g <tmp> -Dmaven.repo.local=<tmp>`. Three CI jobs now: `bash-scaffold`, `jbang-scaffold`, `harness`.
+- **B11.4+ later.** `verify-gates` thin wrapper, end-to-end CI for the template repo, `--upgrade-skills`, B11.3.2 (recipe-method-test.template), `git init` + GitHub remote.
 
 ## Layout
 
@@ -23,6 +24,11 @@ This repo extracts the build conventions, test harnesses, and pre-publish smoke 
 ├── README.md                     # repo-level: what it is, JBang quickstart, manual fallback
 ├── CLAUDE.md                     # this file — session bootstrap
 ├── JBANG_TEMPLATE_PLAN.md        # the source plan
+├── build.gradle.kts              # repo-root Gradle build for the TestKit harness
+├── settings.gradle.kts           # ditto
+├── gradle/                       # libs.versions.toml + wrapper for the harness build
+├── gradlew, gradlew.bat          # wrapper scripts (copied from template/)
+├── src/test/java/recipescaffold/ # ScaffoldHarnessTest — Init+AddRecipe@TempDir+GradleRunner
 ├── .claude/skills/               # repo-level skills for working IN this repo
 ├── tests/ci-smoke.sh             # bash scaffold-and-build verifier (kept as v0 fallback)
 ├── jbang/RecipeScaffold.java     # picocli Init + AddRecipe subcommands — the JBang flow
@@ -117,8 +123,12 @@ PICOCLI=/tmp/picocli-cache/picocli-4.7.7.jar
 [ -f "$PICOCLI" ] || curl -fsSL -o "$PICOCLI" \
   https://repo1.maven.org/maven2/info/picocli/picocli/4.7.7/picocli-4.7.7.jar
 javac --release 17 -cp "$PICOCLI" -d /tmp/recipescaffold-build jbang/RecipeScaffold.java
-java -cp /tmp/recipescaffold-build:"$PICOCLI" RecipeScaffold init --help
+java -cp /tmp/recipescaffold-build:"$PICOCLI" recipescaffold.RecipeScaffold init --help
 ```
+
+## TestKit harness
+
+`./gradlew test` runs `ScaffoldHarnessTest` from the repo root. It scaffolds via `Init.call()` into a `@TempDir`, runs `AddRecipe.call()` once per `--type` (java, scanning, yaml, refaster), then drives `GradleRunner` against the result with `-g <tmpHome> -Dmaven.repo.local=<tmpM2> check`. The harness is the in-repo equivalent of Maven's `archetype:integration-test` and runs as a third parallel CI job alongside `bash-scaffold` and `jbang-scaffold`. Locally it works on any machine where the forked Gradle daemon JVM has working DNS — including the sandbox we run inside is restrictive enough that the harness's inner gradle subprocess fails to fetch the rewrite plugin from `plugins.gradle.org`. Don't fight that here; CI is the authoritative gate for harness-level verification.
 
 ## Not yet wired
 

@@ -1,0 +1,14 @@
+[versions]
+picocli = "4.7.7"
+junit = "6.1.0-M1"
+assertj = "4.0.0-M1"
+versions = "0.53.0"
+
+[libraries]
+picocli = { module = "info.picocli:picocli", version.ref = "picocli" }
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher", version.ref = "junit" }
+assertj-core = { module = "org.assertj:assertj-core", version.ref = "assertj" }
+
+[plugins]
+versions = { id = "com.github.ben-manes.versions", version.ref = "versions" }
