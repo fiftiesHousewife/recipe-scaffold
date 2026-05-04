@@ -34,7 +34,11 @@ import picocli.CommandLine.Option;
         mixinStandardHelpOptions = true,
         version = RecipeScaffold.VERSION,
         description = "Scaffold an OpenRewrite recipe project from recipescaffold.",
-        subcommands = {RecipeScaffold.Init.class, RecipeScaffold.AddRecipe.class}
+        subcommands = {
+                RecipeScaffold.Init.class,
+                RecipeScaffold.AddRecipe.class,
+                RecipeScaffold.VerifyGates.class
+        }
 )
 public class RecipeScaffold implements Runnable {
 
@@ -373,14 +377,21 @@ public class RecipeScaffold implements Runnable {
         }
 
         private static int runGradle(Path dir) throws IOException, InterruptedException {
-            String cmd = System.getProperty("os.name").toLowerCase().startsWith("windows")
-                    ? "gradlew.bat"
-                    : "./gradlew";
-            ProcessBuilder pb = new ProcessBuilder(cmd, "check", "smokeTest")
-                    .directory(dir.toFile())
-                    .inheritIO();
-            return pb.start().waitFor();
+            return RecipeScaffold.runGradle(dir, List.of("check", "smokeTest"));
         }
+    }
+
+    static int runGradle(Path dir, List<String> tasks) throws IOException, InterruptedException {
+        String cmd = System.getProperty("os.name").toLowerCase().startsWith("windows")
+                ? "gradlew.bat"
+                : "./gradlew";
+        List<String> argv = new ArrayList<>();
+        argv.add(cmd);
+        argv.addAll(tasks);
+        ProcessBuilder pb = new ProcessBuilder(argv)
+                .directory(dir.toFile())
+                .inheritIO();
+        return pb.start().waitFor();
     }
 
     @Command(
@@ -623,6 +634,59 @@ public class RecipeScaffold implements Runnable {
                 }
             }
             return sb.toString();
+        }
+    }
+
+    @Command(
+            name = "verify-gates",
+            description = "Run ./gradlew check integrationTest smokeTest in an existing scaffolded project.",
+            mixinStandardHelpOptions = true
+    )
+    static class VerifyGates implements Callable<Integer> {
+
+        @Option(names = {"-d", "--directory"},
+                description = "Project root. Default: walks upward from cwd looking for " + DROPFILE + ".")
+        Path projectDir;
+
+        @Override
+        public Integer call() throws Exception {
+            Path root = projectDir != null
+                    ? projectDir.toAbsolutePath().normalize()
+                    : findProjectRoot();
+            if (root == null) {
+                System.err.println("could not find " + DROPFILE + " walking upward from cwd.");
+                System.err.println("pass --directory <project-root> or run from inside a scaffolded project.");
+                return 2;
+            }
+            // Require the dropfile even when --directory is explicit — it marks
+            // "this is a recipescaffold project" and so guarantees the smokeTest
+            // task and the gradle wrapper are present.
+            if (!Files.isRegularFile(root.resolve(DROPFILE))) {
+                System.err.println("FAIL: " + DROPFILE + " not found at " + root);
+                System.err.println("verify-gates only works in projects scaffolded by recipescaffold.");
+                return 2;
+            }
+            // check, integrationTest, and smokeTest are listed explicitly so the
+            // wrapper runs all three even when `check` is up-to-date — the user
+            // is asking "are the gates green right now," not "is anything stale."
+            System.out.println("running ./gradlew check integrationTest smokeTest in " + root);
+            int rc = runGradle(root, List.of("check", "integrationTest", "smokeTest"));
+            if (rc != 0) {
+                System.err.println("FAIL: gates exited " + rc);
+                return rc;
+            }
+            System.out.println("OK: gates passed at " + root);
+            return 0;
+        }
+
+        private static Path findProjectRoot() {
+            Path here = Paths.get("").toAbsolutePath();
+            for (Path p = here; p != null; p = p.getParent()) {
+                if (Files.isRegularFile(p.resolve(DROPFILE))) {
+                    return p;
+                }
+            }
+            return null;
         }
     }
 }

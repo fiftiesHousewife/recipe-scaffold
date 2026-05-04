@@ -9,6 +9,10 @@ The B-numbered items track [`JBANG_TEMPLATE_PLAN.md`](./JBANG_TEMPLATE_PLAN.md) 
 
 ## Shipped
 
+### 2026-05-04 (B11.4 — verify-gates subcommand)
+
+- **B11.4** — `verify-gates` JBang subcommand. Walks upward from cwd looking for `.recipescaffold.yml` (or accepts `--directory`), validates the dropfile is present (refuses non-recipescaffold projects to keep the smokeTest assumption honest), then runs `./gradlew check integrationTest smokeTest` via `ProcessBuilder.inheritIO()` and forwards the exit code. The three tasks are listed explicitly so all run even when `check` is up-to-date — the user is asking "are the gates green right now," not "is anything stale." Reuses Init's `runGradle` helper, which was extracted to a top-level static `RecipeScaffold.runGradle(Path, List<String>)` so both Init's `--verify` flow and VerifyGates share the same wrapper invocation. Tested locally: exit 2 with clean error when no dropfile present; happy path begins gradle invocation correctly. Plan §B3 priority 3 — deferred git-init dependency lifted (B11.3.x has settled).
+
 ### 2026-05-04 (TestKit harness)
 
 - **In-repo TestKit harness** — `src/test/java/recipescaffold/ScaffoldHarnessTest.java` drives `Init.call()` and `AddRecipe.call()` (one cell per `--type`: java, scanning, yaml, refaster) into a `@TempDir`, then runs `GradleRunner` with `-g <tmpGradleHome> -Dmaven.repo.local=<tmpM2> --stacktrace check` against the scaffolded project. Pattern: Initializr's `ProjectGeneratorTester` shape + Maven Archetype's `archetype:integration-test` scope, ported to Gradle TestKit. Required scaffolding: a Gradle build at the repo root for the first time (`settings.gradle.kts`, `build.gradle.kts`, `gradle/libs.versions.toml`, wrapper assets copied from `template/`, `.gitignore` extended for `/build/` and `/.gradle/`); `package recipescaffold;` added to `jbang/RecipeScaffold.java` so a packaged test can import it (Java forbids importing default-package types). The build points the main source set at `jbang/` so the JBang flow keeps working unchanged. CI gains a `harness` job that runs `./gradlew test`. Local end-to-end inside this Claude sandbox can't complete because the forked Gradle daemon JVM can't resolve DNS for fresh artifact downloads (same gap that hit the refaster verification) — but the harness gets through scaffold + add-recipe (all four types) + TestKit invocation, then fails only on the inner gradle fetching the rewrite plugin. CI and unsandboxed local environments will run end-to-end.
@@ -51,7 +55,6 @@ The B-numbered items track [`JBANG_TEMPLATE_PLAN.md`](./JBANG_TEMPLATE_PLAN.md) 
 ## Queued for next release
 
 - **B11.3.2** — `recipe-method-test.template` — a `RewriteTest` skeleton that takes a one-line `before` / `after` pair instead of the multi-line `java(...)` block in the default test. For when the user wants a tighter assertion form for argument-level transforms.
-- **B11.4** — `verify-gates` subcommand (thin `./gradlew check integrationTest smokeTest` wrapper). Plan §B3.
 - `git init` + GitHub remote `recipescaffold`. Deferred until B11.3.x has settled the snippet layout fully.
 
 ## Active
