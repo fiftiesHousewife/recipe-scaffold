@@ -9,6 +9,10 @@ The B-numbered items track [`JBANG_TEMPLATE_PLAN.md`](./JBANG_TEMPLATE_PLAN.md) 
 
 ## Shipped
 
+### 2026-05-04 (B11.3.1 — yaml type)
+
+- **B11.3.1 (yaml)** — `add-recipe --type yaml` ships `template/snippets/yaml-composition-block.template` (the `specs.openrewrite.org/v1beta/recipe` manifest with placeholder `recipeList: []` + an inline comment showing the canonical entry shape) and `template/snippets/recipe-test-yaml.template` (a `RewriteTest` skeleton that loads the manifest via `Environment.builder().scanRuntimeClasspath().build().activateRecipes("<id>")` rather than `new RecipeClass()`). AddRecipe was refactored from a flat `CLASS_SNIPPETS` map to a nested `RecipeKind` record dispatch with `mainSnippet`, `testSnippet`, and `mainInResources` — yaml routes the manifest to `src/main/resources/META-INF/rewrite/<kebab>.yml` (no package subdir) while java/scanning still write `src/main/java/<pkg>/<Name>.java`. Two new snippet-time placeholders: `{{recipeId}}` (for yaml = `<rootPackage>.<recipeName>`, root namespace per the example.yml convention; for java/scanning = `<package>.<recipeName>`) and `{{recipeKebab}}` (PascalCase → kebab, used for the manifest filename). Local end-to-end: scaffold + add-recipe (java + scanning + yaml) + `./gradlew check` — green. CI extends both jobs with a third `add-recipe --type yaml SmokeYamlRecipe` cell.
+
 ### 2026-05-04 (B11.3.1 — scanning type)
 
 - **B11.3.1 (partial)** — `add-recipe --type scanning` ships `template/snippets/recipe-class-scanning.template` (`ScanningRecipe<Acc>` with `getInitialValue` / `getScanner` / `getVisitor` + a nested `Acc` class holding a `Set<String> seen`). AddRecipe dispatches via `CLASS_SNIPPETS` map (java + scanning); unsupported types report the available list. Same `recipe-test.template` is reused — the no-op default still asserts source unchanged. Local end-to-end: scaffold + add-recipe (java) + add-recipe (scanning) + `./gradlew check` — green. CI extends both jobs with a second `add-recipe --type scanning SmokeScanRecipe` cell. yaml/refaster types still queued.
@@ -38,7 +42,8 @@ The B-numbered items track [`JBANG_TEMPLATE_PLAN.md`](./JBANG_TEMPLATE_PLAN.md) 
 
 ## Queued for next release
 
-- **B11.3.1 (remainder)** — `--type yaml` (`yaml-composition-block.template` — kebab-case id, emits a YAML manifest under `src/main/resources/META-INF/rewrite/<name>.yml`, different test scaffold using `Environment.builder().build().activateRecipes("<id>")`), `--type refaster` (`@RecipeDescriptor` annotation skeleton, may need annotation-processor wiring confirmed in template's build.gradle.kts). Plan §B3, §B5.
+- **B11.3.1 (remainder)** — `--type refaster` (`@RecipeDescriptor` annotation skeleton, may need annotation-processor wiring confirmed in template's build.gradle.kts). Plan §B3, §B5.
+- **In-repo TestKit harness** — JUnit + `GradleRunner` test that scaffolds via `Init.call()` into `@TempDir` and runs `check` with `-g <tmpHome> -Dmaven.repo.local=<tmpM2> --no-daemon`. Works in sandboxes that block `~/.m2` / `~/.gradle` writes (where the bash flow's `publishMavenPublicationToMavenLocal` currently fails locally). Requires `template/build.gradle.kts` to honour `-Dmaven.repo.local`, or gating `smokeTest`'s publish behind a property. Companion to (not replacement for) the GitHub Actions `bash-scaffold` / `jbang-scaffold` matrix. Pattern source: Gradle TestKit user guide; equivalent role to Maven's `archetype:integration-test`.
 - **B11.3.2** — `recipe-method-test.template` — a `RewriteTest` skeleton that takes a one-line `before` / `after` pair instead of the multi-line `java(...)` block in the default test. For when the user wants a tighter assertion form for argument-level transforms.
 - **B11.4** — `verify-gates` subcommand (thin `./gradlew check integrationTest smokeTest` wrapper). Plan §B3.
 - `git init` + GitHub remote `recipescaffold`. Deferred until B11.3.x has settled the snippet layout fully.

@@ -393,8 +393,8 @@ public class RecipeScaffold implements Runnable {
         String name;
 
         @Option(names = "--type", defaultValue = "java",
-                description = "Recipe skeleton kind: java | scanning. Default: ${DEFAULT-VALUE}. "
-                        + "(yaml/refaster still queued.)")
+                description = "Recipe skeleton kind: java | scanning | yaml. Default: ${DEFAULT-VALUE}. "
+                        + "(refaster still queued.)")
         String type;
 
         @Option(names = "--display-name",
@@ -422,18 +422,37 @@ public class RecipeScaffold implements Runnable {
                 description = "Overwrite existing recipe/test files.")
         boolean force;
 
-        private static final Map<String, String> CLASS_SNIPPETS = Map.of(
-                "java", "recipe-class-java.template",
-                "scanning", "recipe-class-scanning.template"
+        // Per-type dispatch: which snippet to render for the recipe and its
+        // test, and whether the recipe ships as a Java class under
+        // src/main/java/<pkg>/ or a YAML manifest under
+        // src/main/resources/META-INF/rewrite/.
+        private record RecipeKind(
+                String mainSnippet,
+                String testSnippet,
+                boolean mainInResources) {}
+
+        private static final Map<String, RecipeKind> KINDS = Map.of(
+                "java", new RecipeKind(
+                        "recipe-class-java.template",
+                        "recipe-test.template",
+                        false),
+                "scanning", new RecipeKind(
+                        "recipe-class-scanning.template",
+                        "recipe-test.template",
+                        false),
+                "yaml", new RecipeKind(
+                        "yaml-composition-block.template",
+                        "recipe-test-yaml.template",
+                        true)
         );
 
         @Override
         public Integer call() throws Exception {
-            String classSnippet = CLASS_SNIPPETS.get(type);
-            if (classSnippet == null) {
+            RecipeKind kind = KINDS.get(type);
+            if (kind == null) {
                 System.err.println("--type=" + type + " is not supported. Available: "
-                        + String.join(", ", CLASS_SNIPPETS.keySet()) + ".");
-                System.err.println("yaml/refaster snippets are queued in BACKLOG.md.");
+                        + String.join(", ", KINDS.keySet()) + ".");
+                System.err.println("refaster snippet is queued in BACKLOG.md.");
                 return 2;
             }
             if (!isPascalCase(name)) {
@@ -464,28 +483,36 @@ public class RecipeScaffold implements Runnable {
                 return 3;
             }
 
+            // YAML compositions live at <rootPackage>.<recipeName> by
+            // convention (root namespace, no .recipes. prefix); Java/scanning
+            // recipes are FQ-named at <package>.<recipeName>.
+            String recipeId = kind.mainInResources()
+                    ? rootPackage + "." + name
+                    : pkg + "." + name;
+
             Map<String, String> repl = new LinkedHashMap<>();
             repl.put("{{package}}", pkg);
             repl.put("{{recipeName}}", name);
             repl.put("{{recipeDisplayName}}", displayName != null ? displayName : humanise(name));
             repl.put("{{recipeDescription}}",
                     description != null ? description : "TODO: describe what this recipe does.");
+            repl.put("{{recipeId}}", recipeId);
+            repl.put("{{recipeKebab}}", kebabCase(name));
 
-            Path mainDir = root.resolve("src/main/java").resolve(pkg.replace('.', '/'));
-            Path testDir = root.resolve("src/test/java").resolve(pkg.replace('.', '/'));
-            Files.createDirectories(mainDir);
-            Path mainFile = mainDir.resolve(name + ".java");
+            Path mainFile = mainOutputPath(root, kind, pkg, name);
+            Files.createDirectories(mainFile.getParent());
             if (Files.exists(mainFile) && !force) {
                 System.err.println("refusing to overwrite " + mainFile + " (pass --force).");
                 return 2;
             }
-            String classBody = applySubstitutions(
-                    Files.readString(snippets.resolve(classSnippet), StandardCharsets.UTF_8),
+            String mainBody = applySubstitutions(
+                    Files.readString(snippets.resolve(kind.mainSnippet()), StandardCharsets.UTF_8),
                     repl);
-            Files.writeString(mainFile, classBody, StandardCharsets.UTF_8);
+            Files.writeString(mainFile, mainBody, StandardCharsets.UTF_8);
             System.out.println("wrote " + mainFile);
 
             if (!skipTests) {
+                Path testDir = root.resolve("src/test/java").resolve(pkg.replace('.', '/'));
                 Files.createDirectories(testDir);
                 Path testFile = testDir.resolve(name + "Test.java");
                 if (Files.exists(testFile) && !force) {
@@ -493,13 +520,23 @@ public class RecipeScaffold implements Runnable {
                     return 2;
                 }
                 String testBody = applySubstitutions(
-                        Files.readString(snippets.resolve("recipe-test.template"), StandardCharsets.UTF_8),
+                        Files.readString(snippets.resolve(kind.testSnippet()), StandardCharsets.UTF_8),
                         repl);
                 Files.writeString(testFile, testBody, StandardCharsets.UTF_8);
                 System.out.println("wrote " + testFile);
             }
 
             return 0;
+        }
+
+        private static Path mainOutputPath(Path root, RecipeKind kind, String pkg, String name) {
+            if (kind.mainInResources()) {
+                return root.resolve("src/main/resources/META-INF/rewrite")
+                        .resolve(kebabCase(name) + ".yml");
+            }
+            return root.resolve("src/main/java")
+                    .resolve(pkg.replace('.', '/'))
+                    .resolve(name + ".java");
         }
 
         private static Path findProjectRoot() {
@@ -565,6 +602,19 @@ public class RecipeScaffold implements Runnable {
                     sb.append(' ').append(Character.toLowerCase(c));
                 } else {
                     sb.append(c);
+                }
+            }
+            return sb.toString();
+        }
+
+        private static String kebabCase(String pascal) {
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < pascal.length(); i++) {
+                char c = pascal.charAt(i);
+                if (i > 0 && Character.isUpperCase(c)) {
+                    sb.append('-').append(Character.toLowerCase(c));
+                } else {
+                    sb.append(Character.toLowerCase(c));
                 }
             }
             return sb.toString();

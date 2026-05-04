@@ -12,7 +12,8 @@ This repo extracts the build conventions, test harnesses, and pre-publish smoke 
 - **B11.1 done.** `template/` holds the parameterised scaffold. `tests/ci-smoke.sh` is the bash port that scaffolds + sed-substitutes + runs `./gradlew check smokeTest`.
 - **B11.2 done (2026-05-04).** `jbang/RecipeScaffold.java` is the picocli `Init` port — same end-state as `ci-smoke.sh`, byte-identical scaffold tree (verified). Runs in two flavours: `jbang jbang/RecipeScaffold.java init …` (preferred) or `javac --release 17 -cp picocli.jar` for environments without JBang. `--verify` runs `./gradlew check smokeTest` after scaffolding.
 - **B11.3 done (2026-05-04).** `add-recipe` JBang subcommand. Reads `.recipescaffold.yml` (written by `init`) for project identity, expands `template/snippets/recipe-class-{java,scanning}.template` + `recipe-test.template` into `src/main/java/<pkg>/recipes/<Name>.java` (+ test). `--type java` and `--type scanning` ship; `yaml` and `refaster` queued. CI exercises both `bash-scaffold + add-recipe (java + scanning) + ./gradlew check` and `jbang init --verify + add-recipe (java + scanning) + ./gradlew check`.
-- **B11.4+ later.** `verify-gates` thin wrapper, end-to-end CI for the template repo, `--upgrade-skills`, B11.3.1 remainder (yaml/refaster types), B11.3.2 (recipe-method-test.template).
+- **B11.3.1 yaml done (2026-05-04).** `add-recipe --type yaml` writes a composition manifest to `src/main/resources/META-INF/rewrite/<kebab>.yml` plus an `Environment.builder().scanRuntimeClasspath()` test under `src/test/java/<pkg>/<Name>Test.java`. `AddRecipe` was refactored to a `RecipeKind` record dispatch (`mainSnippet`, `testSnippet`, `mainInResources`); two new snippet-time placeholders shipped (`{{recipeId}}`, `{{recipeKebab}}`). CI extends both scaffold jobs with a yaml cell. `--type refaster` still queued.
+- **B11.4+ later.** `verify-gates` thin wrapper, end-to-end CI for the template repo, `--upgrade-skills`, B11.3.1 remainder (refaster type), B11.3.2 (recipe-method-test.template), in-repo TestKit harness for sandbox-friendly local E2E.
 
 ## Layout
 
@@ -62,10 +63,12 @@ Two distinct dialects:
 
 | Placeholder | Meaning |
 | --- | --- |
-| `{{package}}` | Java package the recipe lives in (= `<rootPackage>.recipes` by default) |
+| `{{package}}` | Java package the recipe (or its test) lives in (= `<rootPackage>.recipes` by default) |
 | `{{recipeName}}` | Recipe class name (PascalCase) |
 | `{{recipeDisplayName}}` | Returned by `getDisplayName()` |
 | `{{recipeDescription}}` | Returned by `getDescription()` |
+| `{{recipeId}}` | OpenRewrite recipe identifier — for yaml: `<rootPackage>.<recipeName>` (root namespace per example.yml convention); for java/scanning: `<package>.<recipeName>`. |
+| `{{recipeKebab}}` | kebab-case form of `{{recipeName}}`, used for the YAML manifest filename. |
 
 Both dialects share the `{{name}}` syntax. Init-time substitution and the residual check both **skip files under `<root>/snippets/`** so the snippet-time markers survive scaffolding into the user's project intact.
 
