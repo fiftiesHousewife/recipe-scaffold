@@ -435,6 +435,13 @@ public class RecipeScaffold implements Runnable {
                 description = "Overwrite existing recipe/test files.")
         boolean force;
 
+        @Option(names = "--test-style", defaultValue = "block",
+                description = "Test scaffold style: block (multi-line text blocks) | method "
+                        + "(one-line before/after pair, tighter for argument-level transforms). "
+                        + "Default: ${DEFAULT-VALUE}. method-style is currently only available "
+                        + "with --type java|scanning.")
+        String testStyle;
+
         // Per-type dispatch: which snippet to render for the recipe and its
         // test, and whether the recipe ships as a Java class under
         // src/main/java/<pkg>/ or a YAML manifest under
@@ -473,6 +480,18 @@ public class RecipeScaffold implements Runnable {
             }
             if (!isPascalCase(name)) {
                 System.err.println("--name must be a PascalCase Java identifier; got: " + name);
+                return 2;
+            }
+            if (!"block".equals(testStyle) && !"method".equals(testStyle)) {
+                System.err.println("--test-style=" + testStyle + " is not supported. Available: block, method.");
+                return 2;
+            }
+            // method-style swaps in a one-line java(before, after) test scaffold.
+            // It assumes the recipe is a Java class instantiable as `new <Name>()`,
+            // so it is not compatible with yaml (Environment.builder loading) or
+            // refaster (the test must reference the generated <Name>Recipes type).
+            if ("method".equals(testStyle) && !("java".equals(type) || "scanning".equals(type))) {
+                System.err.println("--test-style=method is currently only available with --type java|scanning; got --type=" + type + ".");
                 return 2;
             }
 
@@ -535,8 +554,11 @@ public class RecipeScaffold implements Runnable {
                     System.err.println("refusing to overwrite " + testFile + " (pass --force).");
                     return 2;
                 }
+                String testSnippet = "method".equals(testStyle)
+                        ? "recipe-method-test.template"
+                        : kind.testSnippet();
                 String testBody = applySubstitutions(
-                        Files.readString(snippets.resolve(kind.testSnippet()), StandardCharsets.UTF_8),
+                        Files.readString(snippets.resolve(testSnippet), StandardCharsets.UTF_8),
                         repl);
                 Files.writeString(testFile, testBody, StandardCharsets.UTF_8);
                 System.out.println("wrote " + testFile);

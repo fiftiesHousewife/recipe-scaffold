@@ -1,0 +1,35 @@
+package {{package}};
+
+import org.junit.jupiter.api.Test;
+import org.openrewrite.test.RecipeSpec;
+import org.openrewrite.test.RewriteTest;
+
+import static org.openrewrite.java.Assertions.java;
+
+// Tighter alternative to recipe-test.template for argument-level
+// transforms. The before/after strings are identical by default so
+// the no-op visitor still passes; replace the second string with the
+// expected after-state once you implement the recipe.
+class {{recipeName}}Test implements RewriteTest {
+
+    @Override
+    public void defaults(final RecipeSpec spec) {
+        spec.recipe(new {{recipeName}}());
+    }
+
+    @Test
+    void rewritesArgsTodo() {
+        // Math.max is a stand-in so the parser binds types — replace it
+        // with the call shape your recipe actually targets. Single-arg
+        // java(...) asserts no-op, which is what the default empty
+        // visitor produces. Once the recipe transforms code, add the
+        // expected after-state as a second argument:
+        //   rewriteRun(java(
+        //       "class T { int m() { return Math.max(1, 2); } }",
+        //       "class T { int m() { return Math.max(2, 1); } }"
+        //   ));
+        rewriteRun(java(
+                "class T { int m() { return Math.max(1, 2); } }"
+        ));
+    }
+}

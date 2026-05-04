@@ -53,10 +53,11 @@ class ScaffoldHarnessTest {
 
         assertThat(init.call()).isZero();
 
-        addRecipe(projectDir, "SmokeJavaRecipe", "java");
-        addRecipe(projectDir, "SmokeScanRecipe", "scanning");
-        addRecipe(projectDir, "SmokeYamlRecipe", "yaml");
-        addRecipe(projectDir, "SmokeRefasterRecipe", "refaster");
+        addRecipe(projectDir, "SmokeJavaRecipe", "java", "block");
+        addRecipe(projectDir, "SmokeScanRecipe", "scanning", "block");
+        addRecipe(projectDir, "SmokeYamlRecipe", "yaml", "block");
+        addRecipe(projectDir, "SmokeRefasterRecipe", "refaster", "block");
+        addRecipe(projectDir, "SmokeMethodTestRecipe", "java", "method");
 
         // TestKit uses the Tooling API, which manages its own short-lived
         // gradle worker — `--no-daemon` is not accepted. The Gradle home
@@ -76,13 +77,14 @@ class ScaffoldHarnessTest {
                 .isIn(TaskOutcome.SUCCESS, TaskOutcome.UP_TO_DATE);
     }
 
-    private static void addRecipe(Path projectDir, String name, String type) throws Exception {
+    private static void addRecipe(Path projectDir, String name, String type, String testStyle) throws Exception {
         RecipeScaffold.AddRecipe add = new RecipeScaffold.AddRecipe();
         setField(add, "name", name);
         setField(add, "type", type);
+        setField(add, "testStyle", testStyle);
         setField(add, "projectDir", projectDir);
         assertThat(add.call())
-                .as("add-recipe %s --type=%s", name, type)
+                .as("add-recipe %s --type=%s --test-style=%s", name, type, testStyle)
                 .isZero();
     }
 
