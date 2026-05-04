@@ -368,7 +368,7 @@ The `init` subcommand should be interactive when args are missing (picocli suppo
 
 ### B8. Maintenance burden + flow direction
 
-Push-based with a manual sync step. The recipe project (`/Users/pippanewbold/Claude`) is the source of truth for evolving the template content. When you fix a build-script issue or extend a skill there, you propagate it to the template repo manually:
+Push-based with a manual sync step. The upstream recipe project (`io.github.fiftieshousewife:system-out-to-lombok-log4j`) is the source of truth for evolving the template content. When you fix a build-script issue or extend a skill there, you propagate it to the template repo manually:
 
 ```
 recipe-project (canonical) ──(rsync + tag)──> template-repo (scaffold source)
@@ -437,7 +437,7 @@ class Init implements Callable<Integer> {
 
 ### B11. Implementation sequence
 
-1. **Week 1**: Create `recipescaffold` repo. Manually copy current files from `/Users/pippanewbold/Claude` with placeholder substitution. Verify by hand: `unzip + sed + ./gradlew check`. No JBang yet.
+1. **Week 1**: Create `recipescaffold` repo. Manually copy current files from the upstream recipe project with placeholder substitution. Verify by hand: `unzip + sed + ./gradlew check`. No JBang yet.
 2. **Week 2**: Write `Init` JBang subcommand. Tag template `v0.1`. Test: `jbang init` produces a project that `./gradlew check` passes on a fresh machine.
 3. **Week 3**: Write `AddRecipe` subcommand using snippet templates. Test: scaffold a project, add three recipes, `./gradlew check` still passes.
 4. **Week 4**: Write `VerifyGates` (thin Gradle wrapper). Add CI to template repo that runs end-to-end scaffold + check on every PR.
@@ -447,11 +447,13 @@ class Init implements Callable<Integer> {
 
 ### Critical Files for Implementation
 
-- /Users/pippanewbold/Claude/build.gradle.kts
-- /Users/pippanewbold/Claude/gradle/libs.versions.toml
-- /Users/pippanewbold/Claude/src/smokeTest/java/io/github/fiftieshousewife/smoketest/SmokeProject.java
-- /Users/pippanewbold/Claude/.claude/skills/new-recipe/SKILL.md
-- /Users/pippanewbold/Claude/src/main/resources/META-INF/rewrite/system-out-to-lombok.yml
+Reference paths in the upstream `io.github.fiftieshousewife:system-out-to-lombok-log4j` checkout:
+
+- `build.gradle.kts`
+- `gradle/libs.versions.toml`
+- `src/smokeTest/java/io/github/fiftieshousewife/smoketest/SmokeProject.java`
+- `.claude/skills/new-recipe/SKILL.md`
+- `src/main/resources/META-INF/rewrite/system-out-to-lombok.yml`
 
 ### Sources
 

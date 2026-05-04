@@ -1,4 +1,7 @@
-# Backlog — recipescaffold
+
+
+
+dye# Backlog — recipescaffold
 
 This repo's own backlog. The scaffolded project gets its own `template/BACKLOG.md`; do not conflate.
 
@@ -6,7 +9,18 @@ The B-numbered items track [`JBANG_TEMPLATE_PLAN.md`](./JBANG_TEMPLATE_PLAN.md) 
 
 ## Shipped
 
-### 2026-05-04 (this session)
+### 2026-05-04 (B11.3.1 — scanning type)
+
+- **B11.3.1 (partial)** — `add-recipe --type scanning` ships `template/snippets/recipe-class-scanning.template` (`ScanningRecipe<Acc>` with `getInitialValue` / `getScanner` / `getVisitor` + a nested `Acc` class holding a `Set<String> seen`). AddRecipe dispatches via `CLASS_SNIPPETS` map (java + scanning); unsupported types report the available list. Same `recipe-test.template` is reused — the no-op default still asserts source unchanged. Local end-to-end: scaffold + add-recipe (java) + add-recipe (scanning) + `./gradlew check` — green. CI extends both jobs with a second `add-recipe --type scanning SmokeScanRecipe` cell. yaml/refaster types still queued.
+
+### 2026-05-04 (B11.3 session)
+
+- **B11.3** — `add-recipe` JBang subcommand. Args: `--name <RecipeName>`, `--type java` (initial; B11.3.1 added `scanning`), `--display-name`, `--description`, `--package`, `-d/--directory`, `--no-tests`, `--force`. Reads `.recipescaffold.yml` dropfile (walks upward from cwd if `--directory` not given), loads `snippets/recipe-class-java.template` + `recipe-test.template`, substitutes `{{package}}` / `{{recipeName}}` / `{{recipeDisplayName}}` / `{{recipeDescription}}`, writes to `src/main/java/<pkg>/recipes/<Name>.java` (+ test). Refuses to overwrite without `--force`; rejects non-PascalCase `--name`; rejects unsupported `--type`.
+- **B11.3 — dropfile** — `Init.call()` writes `.recipescaffold.yml` at the output root capturing `recipescaffoldVersion` (= `RecipeScaffold.VERSION`, bumped to `0.2.0`), `group`, `artifact`, `rootPackage`, `javaTargetMain`, `javaTargetTests`. Hand-rolled YAML, no extra deps. `tests/ci-smoke.sh` writes the same shape so the bash flow's output also feeds `add-recipe`.
+- **B11.3 — snippets** — `template/snippets/{recipe-class-java,recipe-test}.template` plus a `README.md` documenting the placeholder dialect. Lives under `template/` so the snippet directory ships into every scaffold AND `add-recipe` reads it from the user's project after scaffolding. Init substitutor and residual check both skip files under `<root>/snippets/` so the `{{…}}` markers survive scaffolding intact.
+- **B11.3 — CI** — both `bash-scaffold` and `jbang-scaffold` jobs now run `add-recipe SmokeRecipe` after the initial scaffold and re-run `./gradlew check`. `bash-scaffold` gains the `jbangdev/setup-jbang@main` step. Catches snippet-substitution regressions before they ship.
+
+### 2026-05-04 (B11.2 session)
 
 - **B11.2** — JBang `Init` subcommand at `jbang/RecipeScaffold.java`. Picocli, single-file, `//DEPS info.picocli:picocli:4.7.7`, `--verify` runs `./gradlew check smokeTest` post-scaffold. Class renamed `recipescaffold` → `RecipeScaffold` for Java convention.
 - Repo-root CI at `.github/workflows/ci.yml`: parallel jobs run `tests/ci-smoke.sh` and `jbang init --verify` on every push/PR. JDK 21+25 installed; uses `jbangdev/setup-jbang@main`.
@@ -24,10 +38,10 @@ The B-numbered items track [`JBANG_TEMPLATE_PLAN.md`](./JBANG_TEMPLATE_PLAN.md) 
 
 ## Queued for next release
 
-- **B11.3** — `add-recipe <name>` subcommand. Reads existing scaffolded project's identity from a `.recipescaffold.yml` dropfile; emits a recipe class + test from `template/snippets/*.template` fragments. Plan §B3, §B5.
+- **B11.3.1 (remainder)** — `--type yaml` (`yaml-composition-block.template` — kebab-case id, emits a YAML manifest under `src/main/resources/META-INF/rewrite/<name>.yml`, different test scaffold using `Environment.builder().build().activateRecipes("<id>")`), `--type refaster` (`@RecipeDescriptor` annotation skeleton, may need annotation-processor wiring confirmed in template's build.gradle.kts). Plan §B3, §B5.
+- **B11.3.2** — `recipe-method-test.template` — a `RewriteTest` skeleton that takes a one-line `before` / `after` pair instead of the multi-line `java(...)` block in the default test. For when the user wants a tighter assertion form for argument-level transforms.
 - **B11.4** — `verify-gates` subcommand (thin `./gradlew check integrationTest smokeTest` wrapper). Plan §B3.
-- `git init` + GitHub remote `recipescaffold`. Deferred until B11.3 settles the layout.
-- `template/snippets/` directory — source-of-truth recipe-skeleton fragments that both `add-recipe` and the `new-recipe` skill read from.
+- `git init` + GitHub remote `recipescaffold`. Deferred until B11.3.x has settled the snippet layout fully.
 
 ## Active
 
@@ -50,7 +64,7 @@ The B-numbered items track [`JBANG_TEMPLATE_PLAN.md`](./JBANG_TEMPLATE_PLAN.md) 
 
 - [`maxandersen/rewrite-jbang`](https://github.com/maxandersen/rewrite-jbang) — JBang-distributed *runner* for OpenRewrite recipes (validates our single-file picocli + `jbang app install` pattern; different scope — they run recipes, we scaffold the project that authors them).
 
-## Upstream-flow items (originate in `/Users/pippanewbold/Claude`)
+## Upstream-flow items (originate in `io.github.fiftieshousewife:system-out-to-lombok-log4j`)
 
 These ship in upstream first; sync into the template when stable. Tracked here only because they touch template payload or build conventions.
 

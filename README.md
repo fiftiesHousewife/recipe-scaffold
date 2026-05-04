@@ -2,7 +2,7 @@
 
 Scaffold an OpenRewrite recipe project with the build conventions, test harnesses, and pre-publish smoke gate from `system-out-to-lombok-log4j`.
 
-> **Status: pre-alpha.** B11.2 (JBang `Init` subcommand) shipped 2026-05-04. `add-recipe` and `verify-gates` subcommands are still queued — see [`BACKLOG.md`](./BACKLOG.md).
+> **Status: pre-alpha.** B11.3 (`add-recipe` for `--type java` + `--type scanning`) shipped 2026-05-04. `add-recipe --type yaml`/`refaster` and `verify-gates` are still queued — see [`BACKLOG.md`](./BACKLOG.md).
 
 ## Quickstart
 
@@ -34,7 +34,24 @@ jbang jbang/RecipeScaffold.java init \
 
 `--verify` runs `./gradlew check smokeTest` against the freshly scaffolded project as a sanity check. Drop it for a faster scaffold-only run. `jbang jbang/RecipeScaffold.java init --help` lists every option.
 
-The result is a normal Gradle project rooted at `--directory`. From there: `cd acme-rewrite-recipes && ./gradlew check`.
+The result is a normal Gradle project rooted at `--directory`, with a `.recipescaffold.yml` dropfile at the root that captures the project's identity for subsequent tooling. From there: `cd acme-rewrite-recipes && ./gradlew check`.
+
+### Adding a recipe
+
+Once scaffolded, drop a new recipe class + test in with:
+
+```bash
+cd acme-rewrite-recipes
+jbang <recipescaffold-checkout>/jbang/RecipeScaffold.java add-recipe \
+  --name RemoveStaleSuppression \
+  --display-name "Remove @SuppressWarnings noise" \
+  --description "Remove suppressions that no longer match a real warning."
+./gradlew check
+```
+
+`add-recipe` walks upward looking for `.recipescaffold.yml`, so it works from any subdirectory. It writes `src/main/java/<rootPackage>/recipes/<Name>.java` and `src/test/java/<rootPackage>/recipes/<Name>Test.java` from `snippets/recipe-class-java.template` + `snippets/recipe-test.template`. The shipped recipe uses a `JavaIsoVisitor` no-op skeleton — fill in `matchesCriteria` / `transform` per the `.claude/skills/new-recipe/SKILL.md` guidance.
+
+`--type` accepts `java` (default) or `scanning` (`ScanningRecipe<Acc>` with first-pass scan + second-pass visit). `yaml`/`refaster` are queued. `--no-tests` skips the test file. `--force` overwrites existing recipe/test files.
 
 ## What you get
 

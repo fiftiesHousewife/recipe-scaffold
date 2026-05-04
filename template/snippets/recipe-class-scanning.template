@@ -1,0 +1,67 @@
+package {{package}};
+
+import lombok.EqualsAndHashCode;
+import lombok.Value;
+import org.jspecify.annotations.NullMarked;
+import org.openrewrite.ExecutionContext;
+import org.openrewrite.ScanningRecipe;
+import org.openrewrite.TreeVisitor;
+import org.openrewrite.java.JavaIsoVisitor;
+
+import java.time.Duration;
+import java.util.LinkedHashSet;
+import java.util.Set;
+
+@Value
+@EqualsAndHashCode(callSuper = false)
+@NullMarked
+public class {{recipeName}} extends ScanningRecipe<{{recipeName}}.Acc> {
+
+    @Override
+    public String getDisplayName() {
+        return "{{recipeDisplayName}}";
+    }
+
+    @Override
+    public String getDescription() {
+        return "{{recipeDescription}}";
+    }
+
+    @Override
+    public Set<String> getTags() {
+        return Set.of();
+    }
+
+    @Override
+    public Duration getEstimatedEffortPerOccurrence() {
+        return Duration.ofMinutes(5);
+    }
+
+    @Override
+    public Acc getInitialValue(ExecutionContext ctx) {
+        return new Acc();
+    }
+
+    @Override
+    public TreeVisitor<?, ExecutionContext> getScanner(Acc acc) {
+        return new JavaIsoVisitor<ExecutionContext>() {
+            // First pass: populate `acc` with anything the second pass needs
+            // to know across files. See ScanningRecipe javadoc for the
+            // initial-value / scan / generate / visit ordering.
+        };
+    }
+
+    @Override
+    public TreeVisitor<?, ExecutionContext> getVisitor(Acc acc) {
+        return new JavaIsoVisitor<ExecutionContext>() {
+            // Second pass: rewrite using whatever `acc` collected.
+            // See .claude/skills/new-recipe/SKILL.md for visitor patterns.
+        };
+    }
+
+    public static class Acc {
+        // Mutable cross-file state collected during getScanner() and read
+        // during getVisitor(). Replace with the shape your recipe needs.
+        public final Set<String> seen = new LinkedHashSet<>();
+    }
+}
