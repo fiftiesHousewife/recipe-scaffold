@@ -63,7 +63,7 @@ jobs:
             --package=io.github.acme \
             --initial-version=0.1 \
             --recipe-name="Acme Recipes" \
-            --recipe-description="OpenRewrite recipes scaffolded from openrewrite-recipe-template-fhw" \
+            --recipe-description="OpenRewrite recipes scaffolded from recipescaffold" \
             --github-org=acme \
             --github-repo=acme-rewrite-recipes \
             --author-id=acmebot \

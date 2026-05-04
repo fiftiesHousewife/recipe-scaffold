@@ -31,7 +31,7 @@ import picocli.CommandLine.Option;
         name = "recipescaffold",
         mixinStandardHelpOptions = true,
         version = "0.1.0",
-        description = "Scaffold an OpenRewrite recipe project from openrewrite-recipe-template-fhw.",
+        description = "Scaffold an OpenRewrite recipe project from recipescaffold.",
         subcommands = {RecipeScaffold.Init.class}
 )
 public class RecipeScaffold implements Runnable {
@@ -131,7 +131,7 @@ public class RecipeScaffold implements Runnable {
                     : findTemplateDir();
             if (!Files.isDirectory(src) || !Files.isRegularFile(src.resolve("build.gradle.kts"))) {
                 System.err.println("not a template dir (no build.gradle.kts): " + src);
-                System.err.println("pass --template-dir explicitly or run from a checkout of openrewrite-recipe-template-fhw");
+                System.err.println("pass --template-dir explicitly or run from a checkout of recipescaffold");
                 return 2;
             }
 

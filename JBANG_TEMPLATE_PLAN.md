@@ -251,7 +251,7 @@ Skip `release` and `bump-versions` for v1; ship `init` + `add-recipe` + `verify-
 
 ### B4. Where the template repo lives
 
-Recommendation: **separate GitHub repo** named `system-out-to-lombok-template` (or `openrewrite-recipe-template-fhw` to avoid implying it's an official Moderne template).
+Recommendation: **separate GitHub repo** named `system-out-to-lombok-template` (or `recipescaffold` to avoid implying it's an official Moderne template).
 
 - Tagged releases (`v0.1`, `v0.2`, …) — JBang script's `//DEPS` line embeds the tag. Each scaffolded project records the template tag it was created from in a comment in `CLAUDE.md` so you can later diff against the template.
 - Separate repo (not a directory inside the recipe project) so:
@@ -272,7 +272,7 @@ Important: keep the skill files in the template repo. The JBang script vendors t
 ### B6. Template-repo file layout
 
 ```
-openrewrite-recipe-template-fhw/
+recipescaffold/
 ├── README.md                              # how to use the template
 ├── jbang/
 │   └── recipescaffold.java                # the JBang script itself
@@ -344,9 +344,9 @@ Sample commands:
 
 ```bash
 # One-time install
-jbang trust add https://github.com/fiftiesHousewife/openrewrite-recipe-template-fhw
+jbang trust add https://github.com/fiftiesHousewife/recipescaffold
 jbang app install --name=recipescaffold \
-  https://github.com/fiftiesHousewife/openrewrite-recipe-template-fhw/blob/v0.1/jbang/recipescaffold.java
+  https://github.com/fiftiesHousewife/recipescaffold/blob/v0.1/jbang/recipescaffold.java
 
 # Scaffold a new recipe project
 recipescaffold init \
@@ -437,7 +437,7 @@ class Init implements Callable<Integer> {
 
 ### B11. Implementation sequence
 
-1. **Week 1**: Create `openrewrite-recipe-template-fhw` repo. Manually copy current files from `/Users/pippanewbold/Claude` with placeholder substitution. Verify by hand: `unzip + sed + ./gradlew check`. No JBang yet.
+1. **Week 1**: Create `recipescaffold` repo. Manually copy current files from `/Users/pippanewbold/Claude` with placeholder substitution. Verify by hand: `unzip + sed + ./gradlew check`. No JBang yet.
 2. **Week 2**: Write `Init` JBang subcommand. Tag template `v0.1`. Test: `jbang init` produces a project that `./gradlew check` passes on a fresh machine.
 3. **Week 3**: Write `AddRecipe` subcommand using snippet templates. Test: scaffold a project, add three recipes, `./gradlew check` still passes.
 4. **Week 4**: Write `VerifyGates` (thin Gradle wrapper). Add CI to template repo that runs end-to-end scaffold + check on every PR.

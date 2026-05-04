@@ -1,4 +1,4 @@
-# Backlog — openrewrite-recipe-template-fhw
+# Backlog — recipescaffold
 
 This repo's own backlog. The scaffolded project gets its own `template/BACKLOG.md`; do not conflate.
 
@@ -26,7 +26,7 @@ The B-numbered items track [`JBANG_TEMPLATE_PLAN.md`](./JBANG_TEMPLATE_PLAN.md) 
 
 - **B11.3** — `add-recipe <name>` subcommand. Reads existing scaffolded project's identity from a `.recipescaffold.yml` dropfile; emits a recipe class + test from `template/snippets/*.template` fragments. Plan §B3, §B5.
 - **B11.4** — `verify-gates` subcommand (thin `./gradlew check integrationTest smokeTest` wrapper). Plan §B3.
-- `git init` + GitHub remote `openrewrite-recipe-template-fhw`. Deferred until B11.3 settles the layout.
+- `git init` + GitHub remote `recipescaffold`. Deferred until B11.3 settles the layout.
 - `template/snippets/` directory — source-of-truth recipe-skeleton fragments that both `add-recipe` and the `new-recipe` skill read from.
 
 ## Active

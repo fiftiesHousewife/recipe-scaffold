@@ -1,4 +1,4 @@
-# openrewrite-recipe-template-fhw
+# recipescaffold
 
 Scaffold an OpenRewrite recipe project with the build conventions, test harnesses, and pre-publish smoke gate from `system-out-to-lombok-log4j`.
 

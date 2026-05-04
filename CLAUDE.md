@@ -1,4 +1,4 @@
-# Claude Code session notes — openrewrite-recipe-template-fhw
+# Claude Code session notes — recipescaffold
 
 This repo extracts the build conventions, test harnesses, and pre-publish smoke gate from `/Users/pippanewbold/Claude` (`io.github.fiftieshousewife:system-out-to-lombok-log4j`) into a reusable scaffold for new OpenRewrite recipe projects. It is the source-of-truth for what a fresh recipe project should look like — the upstream Claude project remains the canonical evolving recipe library, and changes flow push-based from there into here (see plan §B8).
 
@@ -89,6 +89,6 @@ java -cp /tmp/recipescaffold-build:"$PICOCLI" RecipeScaffold init --help
 
 ## Not yet wired
 
-- `git init` and the GitHub remote `openrewrite-recipe-template-fhw` — defer until B11.3+ has settled the directory layout.
+- `git init` and the GitHub remote `recipescaffold` — defer until B11.3+ has settled the directory layout.
 - `template/snippets/*.template` — B11.3 (`add-recipe` subcommand source-of-truth fragments).
 - CI for THIS repo — runs `tests/ci-smoke.sh` (or the JBang flow) on every PR. Plan §B11.4.
