@@ -17,7 +17,8 @@ This repo extracts the build conventions, test harnesses, and pre-publish smoke 
 - **TestKit harness done (2026-05-04).** Repo now has a Gradle build of its own (`build.gradle.kts`, `settings.gradle.kts`, `gradle/libs.versions.toml`, wrapper assets, `gradle.properties`). Main source set points at `jbang/` so the JBang flow keeps working; `jbang/RecipeScaffold.java` gained `package recipescaffold;` so a packaged test can import it. `src/test/java/recipescaffold/ScaffoldHarnessTest.java` drives `Init` + `AddRecipe` (all four `--type` values) into a `@TempDir`, then runs `GradleRunner` against the scaffolded project with `-g <tmp> -Dmaven.repo.local=<tmp>`. Three CI jobs now: `bash-scaffold`, `jbang-scaffold`, `harness`.
 - **B11.4 done (2026-05-04).** `verify-gates` JBang subcommand: walks upward to find `.recipescaffold.yml`, runs `./gradlew check integrationTest smokeTest` via `ProcessBuilder.inheritIO()`. Refuses to run in non-recipescaffold projects (no dropfile = no smokeTest task to invoke). Init's `runGradle` helper extracted to top-level so both flows share it.
 - **B11.3.2 done (2026-05-04).** `add-recipe --test-style block|method` (default `block`); `method` swaps in `recipe-method-test.template` (one-line `java(...)` over `Math.max(1, 2)` with a commented-out before/after hint). Restricted to `--type java|scanning`. CI cell + harness cell added.
-- **B11.5+ later.** End-to-end CI for the template repo, `--upgrade-skills`, `git init` + GitHub remote.
+- **`upgrade-skills` done (2026-05-04).** Fourth JBang subcommand. Walks upward for `.recipescaffold.yml`, replaces each upstream `template/.claude/skills/<X>` in the scaffolded project's `.claude/skills/`. `--dry-run` for preview. Refactored `findTemplateDir`, `findProjectRoot`, `deleteRecursively` to top-level helpers; added `copyDir`.
+- **B11.5+ later.** `git init` + GitHub remote.
 
 ## Layout
 

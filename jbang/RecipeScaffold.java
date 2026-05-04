@@ -37,7 +37,8 @@ import picocli.CommandLine.Option;
         subcommands = {
                 RecipeScaffold.Init.class,
                 RecipeScaffold.AddRecipe.class,
-                RecipeScaffold.VerifyGates.class
+                RecipeScaffold.VerifyGates.class,
+                RecipeScaffold.UpgradeSkills.class
         }
 )
 public class RecipeScaffold implements Runnable {
@@ -204,14 +205,7 @@ public class RecipeScaffold implements Runnable {
         }
 
         private static Path findTemplateDir() {
-            Path here = Paths.get("").toAbsolutePath();
-            for (Path p = here; p != null; p = p.getParent()) {
-                Path candidate = p.resolve("template").resolve("build.gradle.kts");
-                if (Files.isRegularFile(candidate)) {
-                    return p.resolve("template");
-                }
-            }
-            return here.resolve("template");
+            return RecipeScaffold.findTemplateDir();
         }
 
         private static void copyTree(Path src, Path dst) throws IOException {
@@ -264,25 +258,7 @@ public class RecipeScaffold implements Runnable {
         }
 
         private static void deleteRecursively(Path p) throws IOException {
-            if (!Files.exists(p)) {
-                return;
-            }
-            Files.walkFileTree(p, new SimpleFileVisitor<Path>() {
-                @Override
-                public FileVisitResult visitFile(Path f, BasicFileAttributes a) throws IOException {
-                    Files.delete(f);
-                    return FileVisitResult.CONTINUE;
-                }
-
-                @Override
-                public FileVisitResult postVisitDirectory(Path d, IOException exc) throws IOException {
-                    if (exc != null) {
-                        throw exc;
-                    }
-                    Files.delete(d);
-                    return FileVisitResult.CONTINUE;
-                }
-            });
+            RecipeScaffold.deleteRecursively(p);
         }
 
         private static final Set<String> TEXT_EXTS = Set.of(
@@ -578,13 +554,7 @@ public class RecipeScaffold implements Runnable {
         }
 
         private static Path findProjectRoot() {
-            Path here = Paths.get("").toAbsolutePath();
-            for (Path p = here; p != null; p = p.getParent()) {
-                if (Files.isRegularFile(p.resolve(DROPFILE))) {
-                    return p;
-                }
-            }
-            return null;
+            return RecipeScaffold.findProjectRoot();
         }
 
         private static Map<String, String> readDropfile(Path file) throws IOException {
@@ -702,13 +672,138 @@ public class RecipeScaffold implements Runnable {
         }
 
         private static Path findProjectRoot() {
-            Path here = Paths.get("").toAbsolutePath();
-            for (Path p = here; p != null; p = p.getParent()) {
-                if (Files.isRegularFile(p.resolve(DROPFILE))) {
-                    return p;
+            return RecipeScaffold.findProjectRoot();
+        }
+    }
+
+    @Command(
+            name = "upgrade-skills",
+            description = "Refresh template/.claude/skills/ in an existing scaffolded project.",
+            mixinStandardHelpOptions = true
+    )
+    static class UpgradeSkills implements Callable<Integer> {
+
+        @Option(names = {"-d", "--directory"},
+                description = "Project root. Default: walks upward from cwd looking for " + DROPFILE + ".")
+        Path projectDir;
+
+        @Option(names = "--template-dir",
+                description = "Override upstream template source. Default: walks upward from cwd looking for template/build.gradle.kts.")
+        Path templateDir;
+
+        @Option(names = "--dry-run",
+                description = "Print what would change without modifying anything.")
+        boolean dryRun;
+
+        @Override
+        public Integer call() throws Exception {
+            Path root = projectDir != null
+                    ? projectDir.toAbsolutePath().normalize()
+                    : findProjectRoot();
+            if (root == null) {
+                System.err.println("could not find " + DROPFILE + " walking upward from cwd.");
+                System.err.println("pass --directory <project-root> or run from inside a scaffolded project.");
+                return 2;
+            }
+            if (!Files.isRegularFile(root.resolve(DROPFILE))) {
+                System.err.println("FAIL: " + DROPFILE + " not found at " + root);
+                return 2;
+            }
+
+            Path src = templateDir != null
+                    ? templateDir.toAbsolutePath().normalize()
+                    : findTemplateDir();
+            Path upstreamSkills = src.resolve(".claude/skills");
+            if (!Files.isDirectory(upstreamSkills)) {
+                System.err.println("FAIL: no .claude/skills under " + src);
+                System.err.println("pass --template-dir explicitly or run from a checkout of recipescaffold");
+                return 3;
+            }
+
+            Path projectSkills = root.resolve(".claude/skills");
+            Files.createDirectories(projectSkills);
+
+            int refreshed = 0;
+            try (DirectoryStream<Path> ds = Files.newDirectoryStream(upstreamSkills)) {
+                for (Path skill : ds) {
+                    if (!Files.isDirectory(skill)) {
+                        continue;
+                    }
+                    Path target = projectSkills.resolve(skill.getFileName());
+                    if (dryRun) {
+                        System.out.println("would refresh " + target);
+                        refreshed++;
+                        continue;
+                    }
+                    deleteRecursively(target);
+                    copyDir(skill, target);
+                    System.out.println("refreshed " + target);
+                    refreshed++;
                 }
             }
-            return null;
+            System.out.println(dryRun ? "OK: " + refreshed + " skill(s) would be refreshed (dry-run)"
+                                       : "OK: " + refreshed + " skill(s) refreshed at " + projectSkills);
+            return 0;
         }
+    }
+
+    static Path findTemplateDir() {
+        Path here = Paths.get("").toAbsolutePath();
+        for (Path p = here; p != null; p = p.getParent()) {
+            Path candidate = p.resolve("template").resolve("build.gradle.kts");
+            if (Files.isRegularFile(candidate)) {
+                return p.resolve("template");
+            }
+        }
+        return here.resolve("template");
+    }
+
+    static Path findProjectRoot() {
+        Path here = Paths.get("").toAbsolutePath();
+        for (Path p = here; p != null; p = p.getParent()) {
+            if (Files.isRegularFile(p.resolve(DROPFILE))) {
+                return p;
+            }
+        }
+        return null;
+    }
+
+    static void deleteRecursively(Path p) throws IOException {
+        if (!Files.exists(p)) {
+            return;
+        }
+        Files.walkFileTree(p, new SimpleFileVisitor<Path>() {
+            @Override
+            public FileVisitResult visitFile(Path f, BasicFileAttributes a) throws IOException {
+                Files.delete(f);
+                return FileVisitResult.CONTINUE;
+            }
+
+            @Override
+            public FileVisitResult postVisitDirectory(Path d, IOException exc) throws IOException {
+                if (exc != null) {
+                    throw exc;
+                }
+                Files.delete(d);
+                return FileVisitResult.CONTINUE;
+            }
+        });
+    }
+
+    static void copyDir(Path src, Path dst) throws IOException {
+        Files.walkFileTree(src, new SimpleFileVisitor<Path>() {
+            @Override
+            public FileVisitResult preVisitDirectory(Path d, BasicFileAttributes a) throws IOException {
+                Files.createDirectories(dst.resolve(src.relativize(d)));
+                return FileVisitResult.CONTINUE;
+            }
+
+            @Override
+            public FileVisitResult visitFile(Path f, BasicFileAttributes a) throws IOException {
+                Files.copy(f, dst.resolve(src.relativize(f)),
+                        StandardCopyOption.COPY_ATTRIBUTES, StandardCopyOption.REPLACE_EXISTING);
+                return FileVisitResult.CONTINUE;
+            }
+        });
     }
 }

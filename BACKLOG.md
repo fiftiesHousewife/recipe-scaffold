@@ -9,6 +9,10 @@ The B-numbered items track [`JBANG_TEMPLATE_PLAN.md`](./JBANG_TEMPLATE_PLAN.md) 
 
 ## Shipped
 
+### 2026-05-04 (upgrade-skills subcommand)
+
+- **`upgrade-skills`** — fourth JBang subcommand. Walks upward to find `.recipescaffold.yml` (or accepts `--directory`), locates upstream `template/.claude/skills/` (or accepts `--template-dir`), and replaces each skill subdir in the project's `.claude/skills/` with the upstream copy. Iterates only over upstream subdirs, so any user-added skill in the project is left alone. Supports `--dry-run` for preview. Tested locally: tampered SKILL.md overwritten cleanly; second run idempotent; error path (non-scaffolded directory) exits 2 with clean message. Refactor: `findTemplateDir`, `findProjectRoot`, and `deleteRecursively` were moved from per-subcommand private statics to top-level `RecipeScaffold` helpers, plus a new `copyDir` (cousin of Init's `copyTree` without the `.gradle`/`build`/`.idea` skip logic). Per-subcommand wrappers retained as thin delegates so the existing call sites are unchanged. Deviates from the BACKLOG-Parked verbiage of "`init --upgrade-skills` flag" — a separate subcommand is cleaner than gating most of init behind a flag.
+
 ### 2026-05-04 (B11.3.2 — recipe-method-test.template)
 
 - **B11.3.2** — `add-recipe --test-style method` ships `template/snippets/recipe-method-test.template`. Tighter alternative to the default block-form test: one-line `rewriteRun(java("class T { int m() { return Math.max(1, 2); } }"))` with a commented-out hint showing how to expand to a `java(before, after)` pair when the recipe transforms code. `Math.max` is a stand-in so the parser can bind types (OpenRewrite's `RewriteTest` rejects LSTs with missing type info — the original `foo(1, 2)` placeholder failed for that reason). Restricted to `--type java|scanning`; yaml uses `Environment.builder` and refaster references the generated `<Name>Recipes` aggregate, so neither is meaningfully tighter in one-line form. New AddRecipe option `--test-style block|method` (default `block`); validates the value and the type/style combination. Local end-to-end: scaffold + add-recipe (java + scanning + yaml + refaster + java method-style) + `./gradlew check` — green. CI extends both bash- and jbang-scaffold jobs with a fifth cell. Harness gains a fifth `addRecipe` call.
@@ -72,7 +76,6 @@ The B-numbered items track [`JBANG_TEMPLATE_PLAN.md`](./JBANG_TEMPLATE_PLAN.md) 
 - **Unit tests for the helpers** (substitution correctness, residual detection, `__ROOT_PACKAGE__` rename, copyTree skip-list). Trigger: after the module extraction. CI black-box coverage (today) is enough for now.
 - **Extract constants** in `RecipeScaffold.java`: `MARKER_DIR = "__ROOT_PACKAGE__"`, `MARKER_PARENTS = List.of(...)`, `TEXT_EXTENSIONS`, `RESIDUAL_PATTERN`. Cosmetic; bundle into the refactor pass.
 - **`isTextFile()` improvements** — extension allowlist is brittle; `.editorconfig` is currently skipped because of no `.` extension. Either add to `TEXT_NAMES` or switch to content-based detection.
-- **`init --upgrade-skills` flag** — refresh `template/.claude/skills/` on an existing scaffolded project without overwriting the user's code. Plan §B5.
 - **`bump-versions` subcommand** — TOML-aware Maven Central checker, subset of Ben-Manes but one-step. Plan §B3 priority 4.
 - **`release` subcommand** — verify-gates → backlog confirm → version bump → tag → push. Plan §B3 priority 5; risky to automate, leave as documented workflow.
 - **Native image via GraalVM** for faster cold-start. Plan §B10. Only if startup becomes a user complaint.
