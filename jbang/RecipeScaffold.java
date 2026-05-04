@@ -393,8 +393,8 @@ public class RecipeScaffold implements Runnable {
         String name;
 
         @Option(names = "--type", defaultValue = "java",
-                description = "Recipe skeleton kind: java | scanning | yaml. Default: ${DEFAULT-VALUE}. "
-                        + "(refaster still queued.)")
+                description = "Recipe skeleton kind: java | scanning | yaml | refaster. "
+                        + "Default: ${DEFAULT-VALUE}.")
         String type;
 
         @Option(names = "--display-name",
@@ -443,7 +443,11 @@ public class RecipeScaffold implements Runnable {
                 "yaml", new RecipeKind(
                         "yaml-composition-block.template",
                         "recipe-test-yaml.template",
-                        true)
+                        true),
+                "refaster", new RecipeKind(
+                        "recipe-class-refaster.template",
+                        "recipe-test-refaster.template",
+                        false)
         );
 
         @Override
@@ -452,7 +456,6 @@ public class RecipeScaffold implements Runnable {
             if (kind == null) {
                 System.err.println("--type=" + type + " is not supported. Available: "
                         + String.join(", ", KINDS.keySet()) + ".");
-                System.err.println("refaster snippet is queued in BACKLOG.md.");
                 return 2;
             }
             if (!isPascalCase(name)) {

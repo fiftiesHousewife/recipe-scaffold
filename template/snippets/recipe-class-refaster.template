@@ -1,0 +1,32 @@
+package {{package}};
+
+import com.google.errorprone.refaster.annotation.AfterTemplate;
+import com.google.errorprone.refaster.annotation.BeforeTemplate;
+import org.openrewrite.java.template.RecipeDescriptor;
+
+// The outer class is a holder; the rewrite-templating annotation processor
+// generates a sibling `{{recipeName}}Recipes` aggregate Recipe at compile
+// time, with one inner Recipe per @RecipeDescriptor-annotated nested class.
+// Tests instantiate the generated `{{recipeName}}Recipes`, not this class.
+public class {{recipeName}} {
+
+    @RecipeDescriptor(
+            name = "{{recipeDisplayName}}",
+            description = "{{recipeDescription}}"
+    )
+    public static class {{recipeName}}TemplateOne {
+
+        // Replace the body with the pattern you want to match. Anything the
+        // @BeforeTemplate matches will be rewritten to the @AfterTemplate
+        // form, with method/parameter types determining the match shape.
+        @BeforeTemplate
+        boolean before(boolean expr) {
+            return expr == true;
+        }
+
+        @AfterTemplate
+        boolean after(boolean expr) {
+            return expr;
+        }
+    }
+}

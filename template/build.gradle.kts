@@ -29,6 +29,20 @@ dependencies {
     compileOnly(libs.lombok)
     annotationProcessor(libs.lombok)
 
+    // Refaster recipe authoring (--type refaster snippets). The annotation
+    // processor generates the Recipe class at compile time; the runtime API
+    // ships in rewrite-templating; @BeforeTemplate / @AfterTemplate come from
+    // Errorprone Refaster.
+    implementation(libs.openrewrite.templating)
+    annotationProcessor(libs.openrewrite.templating)
+    compileOnly(libs.errorprone.core) {
+        // Match moderneinc/rewrite-recipe-starter: Errorprone pulls in
+        // auto-service annotations and a stale dataflow-errorprone that
+        // collide with cleaner alternatives already on the classpath.
+        exclude(group = "com.google.auto.service", module = "auto-service-annotations")
+        exclude(group = "io.github.eisop", module = "dataflow-errorprone")
+    }
+
     testImplementation(libs.junit.jupiter)
     testRuntimeOnly(libs.junit.platform.launcher)
     testImplementation(libs.assertj.core)
@@ -74,6 +88,10 @@ tasks.withType<Javadoc> {
 
 tasks.named<JavaCompile>("compileJava") {
     options.compilerArgs.add("-parameters")
+    // Tells the rewrite-templating annotation processor to read the parser
+    // classpath from src/main/resources rather than recomputing it. Required
+    // for Refaster recipes; harmless when there are none.
+    options.compilerArgs.add("-Arewrite.javaParserClasspathFrom=resources")
     options.release.set({{javaTargetMain}})
 }
 

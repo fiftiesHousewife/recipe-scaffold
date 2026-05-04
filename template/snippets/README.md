@@ -21,8 +21,10 @@ These templates use a deliberately small placeholder set, distinct from the proj
 
 - `recipe-class-java.template` — plain `JavaIsoVisitor` recipe with a TODO body.
 - `recipe-class-scanning.template` — `ScanningRecipe<Acc>` two-pass skeleton (`getInitialValue` / `getScanner` / `getVisitor` + nested `Acc`).
+- `recipe-class-refaster.template` — Refaster outer-holder class with one nested `@RecipeDescriptor` template-pair. The `rewrite-templating` annotation processor generates a sibling `<recipeName>Recipes` aggregate at compile time.
 - `yaml-composition-block.template` — `META-INF/rewrite/<kebab>.yml` composed-recipe manifest.
 - `recipe-test.template` — `RewriteTest` skeleton for Java/scanning recipes (asserts the no-op default leaves source unchanged).
 - `recipe-test-yaml.template` — `RewriteTest` skeleton for YAML compositions; uses `Environment.builder().scanRuntimeClasspath().build().activateRecipes(...)` to load the manifest.
+- `recipe-test-refaster.template` — `RewriteTest` skeleton for Refaster recipes; instantiates the *generated* `<recipeName>Recipes` (plural) and runs a before/after pair that the default template body satisfies.
 
-Future additions queued in the repo's BACKLOG: `recipe-class-refaster.template`, `recipe-method-test.template`.
+Future additions queued in the repo's BACKLOG: `recipe-method-test.template`.

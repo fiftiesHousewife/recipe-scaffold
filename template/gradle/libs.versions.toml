@@ -1,6 +1,10 @@
 [versions]
 openrewrite = "7.30.0"
 openrewrite-bom = "3.28.0"
+# rewrite-templating's version is managed by the recipe BOM; pin here only for
+# the annotationProcessor coordinate, which doesn't pull from the BOM.
+rewrite-templating = "1.41.4"
+errorprone = "2.49.0"
 junit = "6.1.0-M1"
 assertj = "4.0.0-M1"
 jspecify = "1.0.0"
@@ -22,6 +26,11 @@ openrewrite-java25 = { module = "org.openrewrite:rewrite-java-25" }
 openrewrite-gradle = { module = "org.openrewrite:rewrite-gradle" }
 openrewrite-gradle-tooling-api = { module = "org.openrewrite.gradle.tooling:model" }
 openrewrite-test = { module = "org.openrewrite:rewrite-test" }
+# Refaster recipe support — annotation processor generates the Recipe class
+# from @BeforeTemplate/@AfterTemplate methods. Errorprone provides the
+# Refaster annotations themselves.
+openrewrite-templating = { module = "org.openrewrite:rewrite-templating", version.ref = "rewrite-templating" }
+errorprone-core = { module = "com.google.errorprone:error_prone_core", version.ref = "errorprone" }
 
 # Testing
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit" }
