@@ -1,7 +1,7 @@
 
 
 
-dye# Backlog — recipescaffold
+# Backlog — recipescaffold
 
 This repo's own backlog. The scaffolded project gets its own `template/BACKLOG.md`; do not conflate.
 
