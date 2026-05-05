@@ -144,3 +144,42 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: ./gradlew test
         run: ./gradlew test --stacktrace
+
+  actionlint:
+    name: actionlint (workflows + scaffolded workflows)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jbangdev/setup-jbang@main
+      - name: Install actionlint
+        # Pinned binary; avoiding `bash <(curl ...)` of an unpinned URL.
+        run: |
+          ACTIONLINT_VERSION=1.7.7
+          curl -fsSL -o /tmp/actionlint.tar.gz \
+            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          tar -xzf /tmp/actionlint.tar.gz -C /tmp actionlint
+          chmod +x /tmp/actionlint
+          /tmp/actionlint -version
+      - name: Lint recipescaffold workflows
+        run: /tmp/actionlint .github/workflows/*.yml
+      - name: Scaffold a project so we can lint the shipped workflows post-substitution
+        # No --verify: skip the gradle build, we only need the substituted
+        # workflow files. The bash- and jbang-scaffold jobs already exercise
+        # the full gate chain.
+        run: |
+          jbang jbang/RecipeScaffold.java init \
+            --group=io.github.acme \
+            --artifact=acme-rewrite-recipes \
+            --package=io.github.acme \
+            --recipe-name="Acme Recipes" \
+            --recipe-description="OpenRewrite recipes scaffolded from recipescaffold" \
+            --github-org=acme \
+            --github-repo=acme-rewrite-recipes \
+            --author-id=acmebot \
+            --author-name="Acme Bot" \
+            --author-email=bot@acme.example \
+            -d /tmp/recipe-template-actionlint \
+            --force
+      - name: Lint scaffolded project workflows
+        run: /tmp/actionlint /tmp/recipe-template-actionlint/.github/workflows/*.yml
