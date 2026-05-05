@@ -1,25 +1,27 @@
 # recipescaffold
 
-Scaffold an OpenRewrite recipe project with modern build conventions, three-tier test harnesses, and a pre-publish smoke gate that hard-blocks Maven Central on a real downstream `./gradlew check` — plus a CLI that adds new recipes, runs the gate chain, and refreshes the bundled agent skills.
+Scaffold an [OpenRewrite](https://docs.openrewrite.org) recipe project with modern build conventions, three-tier test harnesses, and a pre-publish smoke gate that hard-blocks [Maven Central](https://central.sonatype.com) on a real downstream `./gradlew check` — plus a CLI that adds new recipes, runs the gate chain, and refreshes the bundled agent skills.
 
-> **Status: beta (2026-05-05).** All four recipe `--type` values (`java`, `scanning`, `yaml`, `refaster`), both `--test-style` variants (`block`, `method`), and four subcommands (`init`, `add-recipe`, `verify-gates`, `upgrade-skills`) shipped. CI exercises the full scaffold-and-build chain in three parallel jobs plus actionlint. See [`BACKLOG.md`](./BACKLOG.md) for queued items.
+> **Status: beta (2026-05-05).** All four recipe `--type` values (`java`, `scanning`, `yaml`, [`refaster`](https://errorprone.info/docs/refaster)), both `--test-style` variants (`block`, `method`), and four subcommands (`init`, `add-recipe`, `verify-gates`, `upgrade-skills`) shipped. CI exercises the full scaffold-and-build chain in three parallel jobs plus [actionlint](https://github.com/rhysd/actionlint). See [`BACKLOG.md`](./BACKLOG.md) for queued items.
 
 Repo: <https://github.com/fiftiesHousewife/recipescaffold>
 
+## Three ways to run it
+
+The CLI is a [picocli](https://picocli.info) script in `jbang/RecipeScaffold.java`. Pick whichever feels best:
+
+| Path | One-time setup | Invocation |
+| --- | --- | --- |
+| **[JBang](https://www.jbang.dev) catalog** *(shortest)* | `brew install jbang` (or `curl -Ls https://sh.jbang.dev \| bash -s - app setup`) | `jbang recipescaffold@fiftiesHousewife/recipescaffold init …` |
+| **JBang direct** | same | `jbang jbang/RecipeScaffold.java init …` (from a checkout) |
+| **Fat jar** *(no JBang required)* | `./gradlew jar` produces `build/libs/recipescaffold.jar` | `java -jar build/libs/recipescaffold.jar init …` |
+
+A bash fallback (`tests/ci-smoke.sh`) reproduces just the `init` step without JBang or Java. See [Fallback paths](#fallback-paths).
+
 ## Quickstart
 
-Install [JBang](https://www.jbang.dev) once:
-
 ```bash
-brew install jbang        # macOS
-# or
-curl -Ls https://sh.jbang.dev | bash -s - app setup
-```
-
-Scaffold a fresh recipe project:
-
-```bash
-jbang jbang/RecipeScaffold.java init \
+jbang recipescaffold@fiftiesHousewife/recipescaffold init \
   --group=io.github.acme \
   --artifact=acme-rewrite-recipes \
   --package=io.github.acme \
@@ -34,23 +36,23 @@ jbang jbang/RecipeScaffold.java init \
   --verify
 ```
 
-`--verify` runs `./gradlew check smokeTest` against the freshly scaffolded project as a sanity check. Drop it for a faster scaffold-only run. `jbang jbang/RecipeScaffold.java init --help` lists every option.
+`--verify` runs `./gradlew check smokeTest` against the freshly scaffolded project as a sanity check. Drop it for a faster scaffold-only run. Append `--help` to any subcommand for the full option list.
 
-The result is a normal Gradle project rooted at `--directory`, with a `.recipescaffold.yml` dropfile at the root that captures the project's identity for subsequent tooling. From there: `cd acme-rewrite-recipes && ./gradlew check`.
+The result is a normal [Gradle](https://gradle.org) project rooted at `--directory`, with a `.recipescaffold.yml` dropfile at the root that captures the project's identity for subsequent tooling. From there: `cd acme-rewrite-recipes && ./gradlew check`.
 
 ## Subcommands
 
-The CLI exposes four subcommands; `--help` on any of them lists every option.
+The CLI exposes four subcommands; `--help` on any of them lists every option. Examples below use the JBang catalog form; substitute `jbang jbang/RecipeScaffold.java` or `java -jar build/libs/recipescaffold.jar` if you prefer.
 
 ### `init` — scaffold a new project
 
-The Quickstart above. Required: `--group`, `--artifact`, `--package`, `--recipe-name`, `--recipe-description`, `--github-org`, `--github-repo`, `--author-id`, `--author-name`, `--author-email`. Optional: `--initial-version` (default `0.1`), `--java-target-main` (default `17`), `--java-target-tests` (default `25`), `--rewrite-plugin-version` (default `7.30.0`), `--directory` (default `./<artifact>`), `--template-dir` (default: walks upward), `--force`, `--verify`. Writes `.recipescaffold.yml` at the output root for subsequent commands.
+The Quickstart above. **Required:** `--group`, `--artifact`, `--package`, `--recipe-name`, `--recipe-description`, `--github-org`, `--github-repo`, `--author-id`, `--author-name`, `--author-email`. **Optional:** `--initial-version` (default `0.1`), `--java-target-main` (default `17`), `--java-target-tests` (default `25`), `--rewrite-plugin-version` (default `7.30.0`), `--directory` (default `./<artifact>`), `--template-dir` (default: walks upward), `--force`, `--verify`. Writes `.recipescaffold.yml` at the output root for subsequent commands.
 
 ### `add-recipe` — drop a new recipe in
 
 ```bash
 cd acme-rewrite-recipes
-jbang <recipescaffold-checkout>/jbang/RecipeScaffold.java add-recipe \
+jbang recipescaffold@fiftiesHousewife/recipescaffold add-recipe \
   --name RemoveStaleSuppression \
   --display-name "Remove @SuppressWarnings noise" \
   --description "Remove suppressions that no longer match a real warning."
@@ -63,10 +65,10 @@ Walks upward looking for `.recipescaffold.yml`, so it works from any subdirector
 
 | Type | Output | Default test scaffold |
 | --- | --- | --- |
-| `java` | `src/main/java/<pkg>/<Name>.java` — `JavaIsoVisitor` no-op skeleton | `recipe-test.template` (single-arg `java(...)`, asserts no-op) |
-| `scanning` | `src/main/java/<pkg>/<Name>.java` — `ScanningRecipe<Acc>` two-pass skeleton | same as `java` |
-| `yaml` | `src/main/resources/META-INF/rewrite/<kebab>.yml` — composed-recipe manifest with placeholder `recipeList: []` | `recipe-test-yaml.template` (uses `Environment.builder().scanRuntimeClasspath().build().activateRecipes(...)`) |
-| `refaster` | `src/main/java/<pkg>/<Name>.java` — outer holder with one nested `@RecipeDescriptor` template-pair | `recipe-test-refaster.template` (instantiates the *generated* `<Name>Recipes` aggregate) |
+| `java` | `src/main/java/<pkg>/<Name>.java` — [`JavaIsoVisitor`](https://docs.openrewrite.org/concepts-and-explanations/visitors) no-op skeleton | `recipe-test.template` (single-arg `java(...)`, asserts no-op) |
+| `scanning` | `src/main/java/<pkg>/<Name>.java` — [`ScanningRecipe<Acc>`](https://docs.openrewrite.org/concepts-and-explanations/recipes#scanning-recipes) two-pass skeleton | same as `java` |
+| `yaml` | `src/main/resources/META-INF/rewrite/<kebab>.yml` — [composed-recipe manifest](https://docs.openrewrite.org/reference/yaml-format-reference) with placeholder `recipeList: []` | `recipe-test-yaml.template` (uses `Environment.builder().scanRuntimeClasspath().build().activateRecipes(...)`) |
+| `refaster` | `src/main/java/<pkg>/<Name>.java` — outer holder with one nested [`@RecipeDescriptor`](https://github.com/openrewrite/rewrite-templating) template-pair | `recipe-test-refaster.template` (instantiates the *generated* `<Name>Recipes` aggregate) |
 
 **`--test-style` (default `block`):** `block` is the multi-line text-block test scaffold; `method` swaps in a one-line `java(...)` over `Math.max(1, 2)` with a commented-out before/after hint — tighter for argument-level transforms. `method` is currently restricted to `--type java|scanning`.
 
@@ -78,7 +80,7 @@ The shipped recipe uses a no-op skeleton — fill in `matchesCriteria` / `transf
 
 ```bash
 cd acme-rewrite-recipes
-jbang <recipescaffold-checkout>/jbang/RecipeScaffold.java verify-gates
+jbang recipescaffold@fiftiesHousewife/recipescaffold verify-gates
 ```
 
 Runs `./gradlew check integrationTest smokeTest`. The three tasks are listed explicitly so all run even when `check` is up-to-date. Refuses to run in non-recipescaffold projects (no dropfile = no `smokeTest` task to invoke). Accepts `--directory`.
@@ -87,21 +89,22 @@ Runs `./gradlew check integrationTest smokeTest`. The three tasks are listed exp
 
 ```bash
 cd acme-rewrite-recipes
-jbang <recipescaffold-checkout>/jbang/RecipeScaffold.java upgrade-skills [--dry-run]
+jbang recipescaffold@fiftiesHousewife/recipescaffold upgrade-skills [--dry-run]
 ```
 
 Replaces each subdir of the project's `.claude/skills/` with the corresponding upstream copy from `template/.claude/skills/`. Iterates only over upstream subdirs, so any user-added skill is left alone. `--dry-run` previews. Accepts `--directory`, `--template-dir`.
 
 ## What you get
 
-- Gradle build with `vanniktech/gradle-maven-publish-plugin` wired to Maven Central, the openrewrite plugin for self-tests, the Ben-Manes versions plugin, and JaCoCo.
-- Refaster recipe support pre-wired: `org.openrewrite:rewrite-templating` annotation processor + `com.google.errorprone:error_prone_core` (with the canonical `auto-service-annotations` and `dataflow-errorprone` excludes); `compileJava` adds `-Arewrite.javaParserClasspathFrom=resources`.
-- Three source sets: `test` (unit + `RewriteTest` integration), `integrationTest` (`withToolingApi()` end-to-end), `smokeTest` (scaffolds `/tmp` Gradle projects per matrix cell).
+- Gradle build with [`vanniktech/gradle-maven-publish-plugin`](https://vanniktech.github.io/gradle-maven-publish-plugin/) wired to Maven Central, the [OpenRewrite Gradle plugin](https://docs.openrewrite.org/reference/gradle-plugin-configuration) for self-tests, the [Ben-Manes versions plugin](https://github.com/ben-manes/gradle-versions-plugin), and [JaCoCo](https://www.jacoco.org/jacoco/).
+- Refaster recipe support pre-wired: [`org.openrewrite:rewrite-templating`](https://github.com/openrewrite/rewrite-templating) annotation processor + [`com.google.errorprone:error_prone_core`](https://errorprone.info) (with the canonical `auto-service-annotations` and `dataflow-errorprone` excludes); `compileJava` adds `-Arewrite.javaParserClasspathFrom=resources`.
+- Three source sets: `test` ([JUnit 5](https://junit.org/junit5/) + [`RewriteTest`](https://docs.openrewrite.org/authoring-recipes/recipe-testing) integration), `integrationTest` ([Gradle Tooling API `withToolingApi()`](https://docs.gradle.org/current/userguide/third_party_integration.html#embedding) end-to-end), `smokeTest` (scaffolds `/tmp` Gradle projects per matrix cell).
 - `publishAndReleaseToMavenCentral` structurally `dependsOn("smokeTest")` — there's no path to Central that skips the gate.
-- Apache 2.0 `LICENSE`, `.editorconfig`, three GitHub Actions workflows (`gradle.yml` for CI, `wrapper-validation.yml` for wrapper-jar checksum, `release.yml` for tag-triggered Maven Central publish).
+- [Apache 2.0 LICENSE](https://www.apache.org/licenses/LICENSE-2.0), `.editorconfig`, three GitHub Actions workflows (`gradle.yml` for CI, `wrapper-validation.yml` for wrapper-jar checksum, `release.yml` for tag-triggered Maven Central publish).
 - `AGENTS.md` (vendor-neutral agent guidance) + `CLAUDE.md` stub forwarding to it. Four `.claude/skills/` shipped: `new-gradle-project`, `new-recipe`, `recipe-testing`, `smoke-test`.
 - One `ExampleRecipe` no-op so a freshly scaffolded project's `./gradlew check smokeTest` is green from the first commit.
 - `snippets/` — copies of the `add-recipe` source-of-truth fragments. Carried into the scaffolded project so `add-recipe` resolves them locally; the init-time substitutor explicitly skips this directory so the snippet-time `{{...}}` markers survive.
+- Other deps wired by default: [Lombok](https://projectlombok.org), [JSpecify](https://jspecify.dev), [AssertJ](https://assertj.github.io/doc/).
 
 ## Placeholders
 
@@ -140,15 +143,32 @@ Two distinct dialects:
 
 The smoke runner is honest about its origins. `Fixture.EXAMPLE` is generic, but `SmokeProject.writeBuild` and `ProjectShapeScaffolder.GREETING_BODY` still ship the SLF4J/Lombok dep block and `System.out.println` fixture from the project this template was extracted from. Look for `EDIT FOR YOUR RECIPE'S DEPS` markers.
 
-## Fallback paths (when JBang isn't available)
+## Fallback paths
 
-**Bash + sed** — `tests/ci-smoke.sh` is the v0 path that does the same scaffolding without JBang. Edit the variables at the top, point it at a target dir, and it scaffolds + runs the gates:
+### Fat jar (no JBang)
+
+Build once, run anywhere with a JDK ≥ 17:
+
+```bash
+./gradlew jar
+java -jar build/libs/recipescaffold.jar init …
+```
+
+Bundles picocli; ~430 KB. Same CLI surface as the JBang form; differs only in invocation. Fine for CI images that don't ship JBang.
+
+### Bash + sed (no JDK at scaffold time)
+
+`tests/ci-smoke.sh` is the v0 path that does just the init step without JBang **or** Java. Edit the variables at the top, point it at a target dir:
 
 ```bash
 ./tests/ci-smoke.sh /path/to/target-project
 ```
 
-**Manual `javac`** — the JBang script compiles cleanly with `javac --release 17` since `//DEPS` and `//JAVA` are Java line comments:
+It scaffolds the project and runs `./gradlew check smokeTest` against the result (which still needs a JDK — bash is only doing the file-shuffling).
+
+### Manual `javac`
+
+If neither the fat jar nor JBang are available but the JBang script is on disk, it compiles cleanly with `javac --release 17` since `//DEPS` and `//JAVA` are Java line comments:
 
 ```bash
 PICOCLI=/tmp/picocli-cache/picocli-4.7.7.jar
@@ -166,7 +186,7 @@ CI runs four parallel jobs on every push and PR (`.github/workflows/ci.yml`):
 | --- | --- |
 | `bash-scaffold` | `tests/ci-smoke.sh` end-to-end (scaffold + `./gradlew check smokeTest`), then `add-recipe` once per `--type`/`--test-style` cell, then `./gradlew check`. |
 | `jbang-scaffold` | `jbang init --verify` (scaffold + `./gradlew check smokeTest`), then the same `add-recipe` cells, then `./gradlew check`. |
-| `harness` | `./gradlew test` — the in-repo TestKit harness (`src/test/java/recipescaffold/ScaffoldHarnessTest.java`) drives `Init` + `AddRecipe` (all five cells) into a `@TempDir`, then runs `GradleRunner` on the result. Sandbox-friendly: redirects Gradle home and Maven local to tmp dirs. |
+| `harness` | `./gradlew test` — the in-repo [Gradle TestKit](https://docs.gradle.org/current/userguide/test_kit.html) harness (`src/test/java/recipescaffold/ScaffoldHarnessTest.java`) drives `Init` + `AddRecipe` (all five cells) into a `@TempDir`, then runs `GradleRunner` on the result. Sandbox-friendly: redirects Gradle home and Maven local to tmp dirs. |
 | `actionlint` | Lints this repo's workflow plus the three workflows shipped into scaffolded projects after a `jbang init`. |
 
 Locally, `tests/ci-smoke.sh` and `jbang init --verify` should produce byte-identical scaffold trees. After any change to `template/`, run **both** plus the harness:
@@ -186,7 +206,8 @@ jbang jbang/RecipeScaffold.java init … --verify
 ├── AGENTS.md                     # vendor-neutral agent guidance (forwarded from CLAUDE.md)
 ├── BACKLOG.md                    # what's shipped + what's queued
 ├── JBANG_TEMPLATE_PLAN.md        # the source plan (Part A: upstream findings; Part B: scaffolder design)
-├── build.gradle.kts              # repo-root Gradle build for the TestKit harness
+├── jbang-catalog.json            # JBang catalog entry — `jbang recipescaffold@fiftiesHousewife/recipescaffold`
+├── build.gradle.kts              # repo-root Gradle build for the TestKit harness + fat jar
 ├── settings.gradle.kts
 ├── gradle/                       # libs.versions.toml + wrapper for the harness build
 ├── gradlew, gradlew.bat
@@ -204,4 +225,4 @@ jbang jbang/RecipeScaffold.java init … --verify
 
 ## License
 
-Apache 2.0. The scaffolded project also ships under Apache 2.0.
+[Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0). The scaffolded project also ships under Apache 2.0.

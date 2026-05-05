@@ -46,3 +46,24 @@ tasks.withType<Test> {
         showStandardStreams = true
     }
 }
+
+// Fat jar so non-JBang users can `java -jar build/libs/recipescaffold.jar init …`.
+// Bundles picocli (the only runtime dep) so the jar is self-contained.
+tasks.jar {
+    archiveBaseName.set("recipescaffold")
+    archiveVersion.set("")
+    manifest {
+        attributes["Main-Class"] = "recipescaffold.RecipeScaffold"
+        attributes["Implementation-Version"] = project.version.toString()
+    }
+    from({
+        configurations.runtimeClasspath.get()
+                .filter { it.name.endsWith("jar") }
+                .map { zipTree(it) }
+    })
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    // Exclude signature files from the bundled deps (none today, but
+    // future deps with signed jars would otherwise produce an
+    // InvalidJarException at runtime).
+    exclude("META-INF/*.SF", "META-INF/*.DSA", "META-INF/*.RSA")
+}
