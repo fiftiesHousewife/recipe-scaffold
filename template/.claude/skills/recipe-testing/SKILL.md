@@ -1,6 +1,6 @@
 ---
 name: recipe-testing
-description: Use this skill when writing or restructuring tests for an OpenRewrite recipe — whether single-source `RewriteTest` cases, helper-method unit tests, multi-source Gradle-aware `rewriteRun` setups, or test-matrix scaffolding across DSL/topology/deps-style combinations. Covers when to split integration vs unit tests, how to handle Lombok-generated types with `TypeValidation.none()`, how to inject `GradleProject` markers to simulate multi-module topology, and when RewriteTest is an approximation that a /tmp smoke test needs to back up. Invoke for phrases like "test this recipe", "write a RewriteTest", "how do I test the Groovy path", "add a matrix test", or whenever a user complains that a recipe's behavior is hard to pin down from unit tests alone.
+description: Writing or restructuring tests for an OpenRewrite recipe — whether single-source `RewriteTest` cases, helper-method unit tests, multi-source Gradle-aware `rewriteRun` setups, or test-matrix scaffolding across DSL/topology/deps-style combinations. Covers when to split integration vs unit tests, how to handle Lombok-generated types with `TypeValidation.none()`, how to inject `GradleProject` markers to simulate multi-module topology, and when RewriteTest is an approximation that a /tmp smoke test needs to back up. Applies for tasks like "test this recipe", "write a RewriteTest", "how do I test the Groovy path", "add a matrix test", or any case where a recipe's behavior is hard to pin down from unit tests alone.
 ---
 
 # Testing OpenRewrite recipes

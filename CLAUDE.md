@@ -1,139 +1,20 @@
 # Claude Code session notes — recipescaffold
 
-This repo packages a reusable scaffold for new OpenRewrite recipe projects: build conventions, three-tier test harnesses (test / integrationTest / smokeTest), and a pre-publish smoke gate that hard-blocks Maven Central on a real downstream `./gradlew check`. The scaffolded project is the source-of-truth for what a fresh recipe project should look like; this repo is the source-of-truth for the scaffolder itself.
+Vendor-neutral guidance — repo layout, placeholder dialects, conventions, how to run the scaffolder, the TestKit harness — lives in [`AGENTS.md`](./AGENTS.md). Read that first; the rest of this file is Claude-Code-specific.
 
 ## Read first
 
-- **`JBANG_TEMPLATE_PLAN.md`** — the full Plan-agent report (Part A: 22 OpenRewrite best-practice findings against the upstream project; Part B: 11-section JBang+picocli scaffolder design). The header table tracks which Part A items have shipped upstream.
-- **`README.md`** — what the repo is, placeholder list, JBang quickstart, manual fallback.
-
-## Status
-
-- **B11.1 done.** `template/` holds the parameterised scaffold. `tests/ci-smoke.sh` is the bash port that scaffolds + sed-substitutes + runs `./gradlew check smokeTest`.
-- **B11.2 done (2026-05-04).** `jbang/RecipeScaffold.java` is the picocli `Init` port — same end-state as `ci-smoke.sh`, byte-identical scaffold tree (verified). Runs in two flavours: `jbang jbang/RecipeScaffold.java init …` (preferred) or `javac --release 17 -cp picocli.jar` for environments without JBang. `--verify` runs `./gradlew check smokeTest` after scaffolding.
-- **B11.3 done (2026-05-04).** `add-recipe` JBang subcommand. Reads `.recipescaffold.yml` (written by `init`) for project identity, expands `template/snippets/recipe-class-{java,scanning}.template` + `recipe-test.template` into `src/main/java/<pkg>/recipes/<Name>.java` (+ test). `--type java` and `--type scanning` ship; `yaml` and `refaster` queued. CI exercises both `bash-scaffold + add-recipe (java + scanning) + ./gradlew check` and `jbang init --verify + add-recipe (java + scanning) + ./gradlew check`.
-- **B11.3.1 yaml done (2026-05-04).** `add-recipe --type yaml` writes a composition manifest to `src/main/resources/META-INF/rewrite/<kebab>.yml` plus an `Environment.builder().scanRuntimeClasspath()` test under `src/test/java/<pkg>/<Name>Test.java`. `AddRecipe` was refactored to a `RecipeKind` record dispatch (`mainSnippet`, `testSnippet`, `mainInResources`); two new snippet-time placeholders shipped (`{{recipeId}}`, `{{recipeKebab}}`).
-- **B11.3.1 refaster done (2026-05-04).** `add-recipe --type refaster` writes an outer-holder class with one nested `@RecipeDescriptor` template-pair under `src/main/java/<pkg>/<Name>.java` plus a test that instantiates the *generated* `<Name>Recipes` aggregate. Template build wiring added: `rewrite-templating` (annotationProcessor + implementation), `error_prone_core` (compileOnly with the canonical excludes), `-Arewrite.javaParserClasspathFrom=resources` on `compileJava`. All four `--type` values (java, scanning, yaml, refaster) now have CI cells in both the bash- and JBang-scaffold jobs.
-- **TestKit harness done (2026-05-04).** Repo now has a Gradle build of its own (`build.gradle.kts`, `settings.gradle.kts`, `gradle/libs.versions.toml`, wrapper assets, `gradle.properties`). Main source set points at `jbang/` so the JBang flow keeps working; `jbang/RecipeScaffold.java` gained `package recipescaffold;` so a packaged test can import it. `src/test/java/recipescaffold/ScaffoldHarnessTest.java` drives `Init` + `AddRecipe` (all four `--type` values) into a `@TempDir`, then runs `GradleRunner` against the scaffolded project with `-g <tmp> -Dmaven.repo.local=<tmp>`. Three CI jobs now: `bash-scaffold`, `jbang-scaffold`, `harness`.
-- **B11.4 done (2026-05-04).** `verify-gates` JBang subcommand: walks upward to find `.recipescaffold.yml`, runs `./gradlew check integrationTest smokeTest` via `ProcessBuilder.inheritIO()`. Refuses to run in non-recipescaffold projects (no dropfile = no smokeTest task to invoke). Init's `runGradle` helper extracted to top-level so both flows share it.
-- **B11.3.2 done (2026-05-04).** `add-recipe --test-style block|method` (default `block`); `method` swaps in `recipe-method-test.template` (one-line `java(...)` over `Math.max(1, 2)` with a commented-out before/after hint). Restricted to `--type java|scanning`. CI cell + harness cell added.
-- **`upgrade-skills` done (2026-05-04).** Fourth JBang subcommand. Walks upward for `.recipescaffold.yml`, replaces each upstream `template/.claude/skills/<X>` in the scaffolded project's `.claude/skills/`. `--dry-run` for preview. Refactored `findTemplateDir`, `findProjectRoot`, `deleteRecursively` to top-level helpers; added `copyDir`.
-- **B11.5+ later.** `git init` + GitHub remote.
-
-## Layout
-
-```
-.
-├── README.md                     # repo-level: what it is, JBang quickstart, manual fallback
-├── CLAUDE.md                     # this file — session bootstrap
-├── JBANG_TEMPLATE_PLAN.md        # the source plan
-├── build.gradle.kts              # repo-root Gradle build for the TestKit harness
-├── settings.gradle.kts           # ditto
-├── gradle/                       # libs.versions.toml + wrapper for the harness build
-├── gradlew, gradlew.bat          # wrapper scripts (copied from template/)
-├── src/test/java/recipescaffold/ # ScaffoldHarnessTest — Init+AddRecipe@TempDir+GradleRunner
-├── .claude/skills/               # repo-level skills for working IN this repo
-├── tests/ci-smoke.sh             # bash scaffold-and-build verifier (kept as v0 fallback)
-├── jbang/RecipeScaffold.java     # picocli Init + AddRecipe subcommands — the JBang flow
-├── template/                     # WHAT GETS SCAFFOLDED into the user's new project
-│   ├── AGENTS.md                 # vendor-neutral agent guidance (canonical)
-│   ├── CLAUDE.md                 # Claude-Code-specific notes; forwards to AGENTS.md
-│   ├── LICENSE                   # Apache 2.0
-│   ├── .editorconfig
-│   ├── .github/
-│   │   └── workflows/{gradle,release,wrapper-validation}.yml
-│   ├── snippets/                 # source-of-truth recipe-skeleton fragments (read by add-recipe)
-│   ├── ...everything else that becomes their build...
-│   └── .claude/skills/           # the four recipe-authoring skills the scaffolded project ships with
-```
-
-After `init`, the scaffolded project root holds a `.recipescaffold.yml` dropfile (`recipescaffoldVersion`, `group`, `artifact`, `rootPackage`, `javaTargetMain`, `javaTargetTests`). `add-recipe` walks upward from cwd looking for it.
-
-The `template/.claude/skills/` vs the repo-level `.claude/skills/` distinction matters: the former goes to the scaffolded user, the latter is for the maintainer of THIS repo.
-
-## Placeholders the scaffold uses
-
-Two distinct dialects:
-
-**Init-time placeholders** (substituted by `tests/ci-smoke.sh` and `jbang init`):
-
-| Placeholder | Meaning |
-| --- | --- |
-| `{{group}}`, `{{artifact}}`, `{{rootPackage}}` | Maven group + artifact + Java root package |
-| `{{initialVersion}}` | First version of the scaffolded project |
-| `{{recipeName}}`, `{{recipeDescription}}` | POM name + description |
-| `{{githubOrg}}`, `{{githubRepo}}` | For SCM URLs |
-| `{{authorId}}`, `{{authorName}}`, `{{authorEmail}}` | POM developer block |
-| `{{javaTargetMain}}`, `{{javaTargetTests}}` | `release` for compileJava and compileTestJava |
-| `{{rewritePluginVersion}}` | Snippet versions in template's docs |
-| `__ROOT_PACKAGE__` | Literal directory marker — renamed at scaffold time |
-
-**Snippet-time placeholders** (substituted by `jbang add-recipe`, in `template/snippets/*.template` only):
-
-| Placeholder | Meaning |
-| --- | --- |
-| `{{package}}` | Java package the recipe (or its test) lives in (= `<rootPackage>.recipes` by default) |
-| `{{recipeName}}` | Recipe class name (PascalCase) |
-| `{{recipeDisplayName}}` | Returned by `getDisplayName()` |
-| `{{recipeDescription}}` | Returned by `getDescription()` |
-| `{{recipeId}}` | OpenRewrite recipe identifier — for yaml: `<rootPackage>.<recipeName>` (root namespace per example.yml convention); for java/scanning: `<package>.<recipeName>`. |
-| `{{recipeKebab}}` | kebab-case form of `{{recipeName}}`, used for the YAML manifest filename. |
-
-Both dialects share the `{{name}}` syntax. Init-time substitution and the residual check both **skip files under `<root>/snippets/`** so the snippet-time markers survive scaffolding into the user's project intact.
-
-The residual check is `(?<!\$)\{\{[a-zA-Z][a-zA-Z0-9]*\}\}` — anchored so GitHub Actions `${{ secrets.X }}` expressions in `release.yml` don't trip the gate.
-
-`tests/ci-smoke.sh` and `jbang/RecipeScaffold.java` must stay in sync. When you add a new init-time placeholder: extend both substitution lists and the table above. When you add a new snippet, drop it in `template/snippets/` and `add-recipe` picks it up by file name (no script edit needed unless you add a new `--type`).
+- [`AGENTS.md`](./AGENTS.md) — canonical project guidance.
+- [`README.md`](./README.md) — user-facing: install paths, subcommand reference, command cheatsheet.
+- [`BACKLOG.md`](./BACKLOG.md) — Shipped / Queued / Active / Parked.
+- [`JBANG_TEMPLATE_PLAN.md`](./JBANG_TEMPLATE_PLAN.md) — the source plan (Part A: review findings; Part B: scaffolder design).
 
 ## Skills available in this session
 
-The four recipe-authoring skills (`new-gradle-project`, `new-recipe`, `recipe-testing`, `smoke-test`) plus the ten clean-code skills. The clean-code skills aren't enforced by build tools here (the template strips the cleancode plugin) — invoke them on judgment, not because tooling demands it.
+The four recipe-authoring skills (`new-gradle-project`, `new-recipe`, `recipe-testing`, `smoke-test`) plus the ten clean-code skills. The clean-code skills aren't enforced by build tools here (the template strips the cleancode plugin) — apply them on judgment, not because tooling demands it.
 
-## Conventions
+## Notes on collaboration
 
-- **No emojis in source, docs, or commits** unless the user explicitly asks.
-- **Prefer editing `template/` files over creating new ones.** New files in `template/` propagate to every future scaffold — only add when the responsibility doesn't fit existing files.
-- **Verify after every template change** by running both `tests/ci-smoke.sh` and the JBang script with `--verify`. Don't trust placeholder substitution by inspection.
-- **Honest scope notes belong in `README.md`** — the smoke runner ships SLF4J/Lombok-specific dep blocks marked `EDIT FOR YOUR RECIPE'S DEPS`. Don't pretend it's fully generic.
-- **AGENTS.md is canonical, CLAUDE.md is the stub** in the scaffolded project — vendor-neutral content goes in AGENTS.md.
-
-## How to run the JBang script
-
-The supported flow is JBang. Install it once (`brew install jbang` or `curl -Ls https://sh.jbang.dev | bash -s - app setup`), then:
-
-```bash
-jbang jbang/RecipeScaffold.java init --help
-jbang jbang/RecipeScaffold.java add-recipe --help
-```
-
-JBang handles compilation, dep resolution (`//DEPS info.picocli:picocli:4.7.7`), and caching. CI uses the same flow via `jbangdev/setup-jbang@main` in `.github/workflows/ci.yml`.
-
-Typical sequence for a fresh project:
-```bash
-jbang jbang/RecipeScaffold.java init --group=… --artifact=… --root-package=… [other required args] -d ./acme-rewrite-recipes --verify
-cd acme-rewrite-recipes
-jbang <path-to-recipescaffold>/jbang/RecipeScaffold.java add-recipe --name RemoveStaleSuppression
-./gradlew check
-```
-
-`add-recipe` finds `.recipescaffold.yml` by walking upward from cwd, so it works from any subdirectory of a scaffolded project.
-
-**Fallback only — when JBang is genuinely unavailable** (e.g. an air-gapped CI image), the script compiles cleanly with `javac --release 17` since `//DEPS` and `//JAVA` are Java line comments. Don't make this the default; install JBang.
-
-```bash
-PICOCLI=/tmp/picocli-cache/picocli-4.7.7.jar
-[ -f "$PICOCLI" ] || curl -fsSL -o "$PICOCLI" \
-  https://repo1.maven.org/maven2/info/picocli/picocli/4.7.7/picocli-4.7.7.jar
-javac --release 17 -cp "$PICOCLI" -d /tmp/recipescaffold-build jbang/RecipeScaffold.java
-java -cp /tmp/recipescaffold-build:"$PICOCLI" recipescaffold.RecipeScaffold init --help
-```
-
-## TestKit harness
-
-`./gradlew test` runs `ScaffoldHarnessTest` from the repo root. It scaffolds via `Init.call()` into a `@TempDir`, runs `AddRecipe.call()` once per `--type` (java, scanning, yaml, refaster), then drives `GradleRunner` against the result with `-g <tmpHome> -Dmaven.repo.local=<tmpM2> check`. The harness is the in-repo equivalent of Maven's `archetype:integration-test` and runs as a third parallel CI job alongside `bash-scaffold` and `jbang-scaffold`. Locally it works on any machine where the forked Gradle daemon JVM has working DNS — including the sandbox we run inside is restrictive enough that the harness's inner gradle subprocess fails to fetch the rewrite plugin from `plugins.gradle.org`. Don't fight that here; CI is the authoritative gate for harness-level verification.
-
-## Not yet wired
-
-- `git init` and the GitHub remote `recipescaffold` — defer until B11.3+ has settled the directory layout.
-- `template/snippets/*.template` — B11.3 (`add-recipe` subcommand source-of-truth fragments).
-- CI for THIS repo — runs `tests/ci-smoke.sh` (or the JBang flow) on every PR. Plan §B11.4.
+- Project-wide rules (no emojis, package-private helpers, `template/` over new files, etc.) live in [`AGENTS.md`](./AGENTS.md) — apply silently, no need to acknowledge in chat.
+- Don't duplicate skill content into responses or commit messages — invoke the skill and let the user see the same content.
+- New files in `template/` propagate to every future scaffold; weigh that before adding rather than editing.

@@ -1,6 +1,6 @@
 ---
 name: new-gradle-project
-description: Use this skill when the user is bootstrapping a new Gradle project (library, application, or recipe project) and wants it set up with current best practices — version catalog in TOML, minimal JUnit dependency declarations, the Ben-Manes versions plugin for update checking, the JVM args that silence the Java 21+ native-access warning, and a typical build.gradle.kts skeleton. Invoke when phrases like "new gradle project", "scaffold a gradle build", "set up a fresh gradle project", or "gradle project best practices" appear — or when the user is cloning a fresh template and asks for the modern conventions. For OpenRewrite-specific scaffolding, combine with the new-recipe skill.
+description: Bootstrapping a new Gradle project (library, application, or recipe project) with current best practices — TOML version catalog, minimal JUnit dependency declarations, the Ben-Manes versions plugin for update checking, the JVM args that silence the Java 21+ native-access warning, and a typical build.gradle.kts skeleton. Applies for tasks like "new gradle project", "scaffold a gradle build", "set up a fresh gradle project", or "gradle project best practices". For OpenRewrite-specific scaffolding, pair with the new-recipe skill.
 ---
 
 # Setting up a new Gradle project

@@ -1,6 +1,6 @@
 ---
 name: new-recipe
-description: Use this skill when the user wants to author a new OpenRewrite recipe — either in an existing recipe project or bootstrapping a new recipe project from scratch. Covers the idiomatic visitor structure, `MethodMatcher` usage, YAML composition, the correct location for the recipe manifest, and tree-editing patterns (argument-level replacement that preserves Groovy/Kotlin markers). For anything test-related, see the companion `recipe-testing` skill. For generic Gradle project setup, see the `new-gradle-project` skill. Invoke when phrases like "add a new recipe", "start a recipe project", "scaffold a recipe", "write an OpenRewrite visitor", or a reference to the moderneinc/rewrite-recipe-starter shows up.
+description: Authoring a new OpenRewrite recipe — either in an existing recipe project or bootstrapping a recipe project from scratch. Covers the idiomatic visitor structure, `MethodMatcher` usage, YAML composition, the correct location for the recipe manifest, and tree-editing patterns (argument-level replacement that preserves Groovy/Kotlin markers). For anything test-related, see the companion `recipe-testing` skill. For generic Gradle project setup, see the `new-gradle-project` skill. Applies for tasks like "add a new recipe", "start a recipe project", "scaffold a recipe", "write an OpenRewrite visitor", or references to the moderneinc/rewrite-recipe-starter.
 ---
 
 # Authoring a new OpenRewrite recipe

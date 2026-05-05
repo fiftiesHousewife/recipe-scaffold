@@ -1,22 +1,22 @@
 # Claude Code session notes
 
-Project guidance for any AI coding agent — structure, publication workflow, coding standards, build quirks — lives in [`AGENTS.md`](./AGENTS.md). Read that first; the rest of this file is Claude-Code-specific.
+Vendor-neutral project guidance — structure, publication workflow, coding standards, build quirks — lives in [`AGENTS.md`](./AGENTS.md). Read that first; the rest of this file is Claude-Code-specific.
 
 ## Skills
 
-Four committed project skills live at `.claude/skills/`. Invoke them instead of re-deriving their content; descriptions are tuned so the model picks the right one when the user's intent matches.
+Four committed project skills live at `.claude/skills/`. Their bodies are agent-neutral OpenRewrite/Gradle reference documentation — readable directly as docs by any agent or human. The Claude Code harness picks one based on the user's intent and the description in the YAML frontmatter.
 
-| Skill | Invoke when the user asks to … |
+| Skill | Covers |
 | --- | --- |
-| `new-gradle-project` | Bootstrap a fresh Gradle build: TOML version catalog, condensed JUnit, Ben-Manes versions plugin, `gradle.properties` JVM args, build-file skeleton. |
-| `new-recipe` | Author a new OpenRewrite recipe: visitor structure, `MethodMatcher`, YAML composition, manifest location, marker-preserving tree edits, `@Option` patterns. |
-| `recipe-testing` | Write tests for a recipe: integration vs. unit split, `RewriteTest` + `TypeValidation.none()`, multi-source `rewriteRun`, `GradleProject` marker injection, matrix-test layout. |
-| `smoke-test` | Design or extend the pre-release smoke-test procedure: `/tmp` project bootstrap, dryRun → Run → compile cycle, project-shape matrix, expected-outcomes tables, mavenLocal resolution check. |
+| `new-gradle-project` | Bootstrapping a fresh Gradle build: TOML version catalog, condensed JUnit, Ben-Manes versions plugin, `gradle.properties` JVM args, build-file skeleton. |
+| `new-recipe` | Authoring a new OpenRewrite recipe: visitor structure, `MethodMatcher`, YAML composition, manifest location, marker-preserving tree edits, `@Option` patterns. |
+| `recipe-testing` | Writing tests for a recipe: integration vs. unit split, `RewriteTest` + `TypeValidation.none()`, multi-source `rewriteRun`, `GradleProject` marker injection, matrix-test layout. |
+| `smoke-test` | Designing or extending the pre-release smoke-test procedure: `/tmp` project bootstrap, dryRun → Run → compile cycle, project-shape matrix, expected-outcomes tables, mavenLocal resolution check. |
 
-The skill files in `.claude/skills/` are version-controlled — treat them as part of the project, not personal config. When the upstream template repo improves a skill, pull the change in by hand (no auto-sync).
+The skill files in `.claude/skills/` are version-controlled — treat them as part of the project, not personal tool config. When the upstream scaffolder improves a skill, run `recipescaffold upgrade-skills` (or pull the change in by hand).
 
 ## Notes on collaboration
 
-- Do not duplicate skill content into this file or into commit messages — invoke the skill and let the user see the same content you used.
+- Don't duplicate skill content into this file or into commit messages — refer to the skill and let the user see the same content.
 - Project-wide rules (no emojis, package-private helpers, etc.) live in `AGENTS.md` § "Coding standards" — apply them silently, no need to acknowledge in chat.
 - The template's `LICENSE` is Apache 2.0; new source files do not need per-file headers.

@@ -30,7 +30,6 @@ class ScaffoldHarnessTest {
     @Test
     void initThenAddRecipeForEveryTypeBuildsGreen(
             @TempDir Path projectDir,
-            @TempDir Path gradleHome,
             @TempDir Path mavenLocal) throws Exception {
 
         RecipeScaffold.Init init = new RecipeScaffold.Init();
@@ -59,13 +58,15 @@ class ScaffoldHarnessTest {
         addRecipe(projectDir, "SmokeRefasterRecipe", "refaster", "block");
         addRecipe(projectDir, "SmokeMethodTestRecipe", "java", "method");
 
-        // TestKit uses the Tooling API, which manages its own short-lived
-        // gradle worker — `--no-daemon` is not accepted. The Gradle home
-        // override (-g) keeps build artifacts off the user's home dir.
+        // Inherit the parent's ~/.gradle so plugins and deps come from the
+        // already-warm cache. Forcing -g <tmp> would mean a cold daemon that
+        // re-downloads everything, which breaks under sandboxed networking
+        // because the proxy does not extend to deeply-nested Gradle JVMs.
+        // -Dmaven.repo.local stays redirected so we don't pollute ~/.m2 with
+        // the scaffolded project's publishMavenPublicationToMavenLocal output.
         BuildResult result = GradleRunner.create()
                 .withProjectDir(projectDir.toFile())
                 .withArguments(
-                        "-g", gradleHome.toString(),
                         "-Dmaven.repo.local=" + mavenLocal,
                         "--stacktrace",
                         "check")
