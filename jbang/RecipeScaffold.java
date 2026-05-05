@@ -132,7 +132,7 @@ public class RecipeScaffold implements Runnable {
                 description = "release for compileTestJava and toolchain. Default: ${DEFAULT-VALUE}.")
         String javaTargetTests;
 
-        @Option(names = "--rewrite-plugin-version", defaultValue = "7.30.0",
+        @Option(names = "--rewrite-plugin-version", defaultValue = "7.32.1",
                 description = "Used in docs snippets. Default: ${DEFAULT-VALUE}.")
         String rewritePluginVersion;
 

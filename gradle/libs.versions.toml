@@ -1,8 +1,8 @@
 [versions]
 picocli = "4.7.7"
-junit = "6.1.0-M1"
+junit = "6.1.0-RC1"
 assertj = "4.0.0-M1"
-versions = "0.53.0"
+versions = "0.54.0"
 
 [libraries]
 picocli = { module = "info.picocli:picocli", version.ref = "picocli" }

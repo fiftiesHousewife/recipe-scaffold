@@ -1,15 +1,15 @@
 [versions]
-openrewrite = "7.30.0"
-openrewrite-bom = "3.28.0"
+openrewrite = "7.32.1"
+openrewrite-bom = "3.30.0"
 # rewrite-templating's version is managed by the recipe BOM; pin here only for
 # the annotationProcessor coordinate, which doesn't pull from the BOM.
-rewrite-templating = "1.41.4"
+rewrite-templating = "1.41.6"
 errorprone = "2.49.0"
-junit = "6.1.0-M1"
+junit = "6.1.0-RC1"
 assertj = "4.0.0-M1"
 jspecify = "1.0.0"
-lombok = "1.18.44"
-versions = "0.53.0"
+lombok = "1.18.46"
+versions = "0.54.0"
 maven-publish = "0.36.0"
 
 [libraries]

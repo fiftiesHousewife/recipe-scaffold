@@ -103,7 +103,7 @@ The CLI exposes four subcommands; `--help` on any of them lists every option. Ex
 
 ### `init` — scaffold a new project
 
-The Quickstart above. **Required:** `--group`, `--artifact`, `--package`, `--recipe-name`, `--recipe-description`, `--github-org`, `--github-repo`, `--author-id`, `--author-name`, `--author-email`. **Optional:** `--initial-version` (default `0.1`), `--java-target-main` (default `17`), `--java-target-tests` (default `25`), `--rewrite-plugin-version` (default `7.30.0`), `--directory` (default `./<artifact>`), `--template-dir` (default: walks upward), `--force`, `--verify`. Writes `.recipescaffold.yml` at the output root for subsequent commands.
+The Quickstart above. **Required:** `--group`, `--artifact`, `--package`, `--recipe-name`, `--recipe-description`, `--github-org`, `--github-repo`, `--author-id`, `--author-name`, `--author-email`. **Optional:** `--initial-version` (default `0.1`), `--java-target-main` (default `17`), `--java-target-tests` (default `25`), `--rewrite-plugin-version` (default `7.32.1`), `--directory` (default `./<artifact>`), `--template-dir` (default: walks upward), `--force`, `--verify`. Writes `.recipescaffold.yml` at the output root for subsequent commands.
 
 ### `add-recipe` — drop a new recipe in
 
@@ -233,7 +233,7 @@ Two distinct dialects:
 | `{{authorId}}`, `{{authorName}}`, `{{authorEmail}}` | | For POM developer block |
 | `{{javaTargetMain}}` | `17` | `release` for `compileJava` |
 | `{{javaTargetTests}}` | `25` | `release` for `compileTestJava` and toolchain |
-| `{{rewritePluginVersion}}` | `7.30.0` | for `id("org.openrewrite.rewrite") version "..."` snippets in docs |
+| `{{rewritePluginVersion}}` | `7.32.1` | for `id("org.openrewrite.rewrite") version "..."` snippets in docs |
 
 `__ROOT_PACKAGE__` is a literal directory marker — the scaffolder renames it to the slashed form of `{{rootPackage}}` at scaffold time.
 
