@@ -1,6 +1,6 @@
 # Claude Code session notes — recipescaffold
 
-This repo extracts the build conventions, test harnesses, and pre-publish smoke gate from the upstream `io.github.fiftieshousewife:system-out-to-lombok-log4j` recipe project into a reusable scaffold for new OpenRewrite recipe projects. It is the source-of-truth for what a fresh recipe project should look like — the upstream project remains the canonical evolving recipe library, and changes flow push-based from there into here (see plan §B8).
+This repo packages a reusable scaffold for new OpenRewrite recipe projects: build conventions, three-tier test harnesses (test / integrationTest / smokeTest), and a pre-publish smoke gate that hard-blocks Maven Central on a real downstream `./gradlew check`. The scaffolded project is the source-of-truth for what a fresh recipe project should look like; this repo is the source-of-truth for the scaffolder itself.
 
 ## Read first
 
@@ -41,7 +41,6 @@ This repo extracts the build conventions, test harnesses, and pre-publish smoke 
 │   ├── LICENSE                   # Apache 2.0
 │   ├── .editorconfig
 │   ├── .github/
-│   │   ├── dependabot.yml
 │   │   └── workflows/{gradle,release,wrapper-validation}.yml
 │   ├── snippets/                 # source-of-truth recipe-skeleton fragments (read by add-recipe)
 │   ├── ...everything else that becomes their build...

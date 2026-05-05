@@ -75,9 +75,9 @@ Notes on methodology: I cross-checked findings against (1) the official `moderne
 
 ### A3. Recipe IDs / package convention
 - **Status**: [minor] mildly nonstandard — but defensible
-- **What we do**: Recipe IDs in `system-out-to-lombok.yml` are `io.github.fiftieshousewife.SystemOutToSlf4jRecipe` etc. Java recipe FQNs are `io.github.fiftieshousewife.recipes.X`.
-- **Standard**: ADR-0002 says "DO start every OpenRewrite recipe package with `org.openrewrite.<LANGUAGE>`". That's the rule for OpenRewrite-org-internal recipes; community recipes universally use their own group (e.g. `io.moderne.…`, `tech.picnic.…`). What's worth flagging: the YAML composed-recipe IDs drop the `.recipes` segment (`io.github.fiftieshousewife.SystemOutToSlf4jRecipe`) while the Java leaf-recipe FQNs keep it (`io.github.fiftieshousewife.recipes.SystemOutToSlf4j`). Both forms are valid; the inconsistency is purely cosmetic.
-- **Recommendation**: Leave package as-is. Consider standardising YAML IDs to also live under `.recipes` — `io.github.fiftieshousewife.recipes.SystemOutToSlf4jRecipe` — but this is breaking for downstream users so do at the next major bump only. Document the choice in CLAUDE.md if you don't change it.
+- **What we do**: YAML composed-recipe IDs sit at `<rootPackage>.<RecipeName>` (root namespace); Java leaf-recipe FQNs sit at `<rootPackage>.recipes.<RecipeName>`. The two namespaces are different by design.
+- **Standard**: ADR-0002 says "DO start every OpenRewrite recipe package with `org.openrewrite.<LANGUAGE>`". That's the rule for OpenRewrite-org-internal recipes; community recipes universally use their own group (e.g. `io.moderne.…`, `tech.picnic.…`). What's worth flagging: the YAML/Java namespace split is intentional but a reader might assume it's a typo.
+- **Recommendation**: Leave the split as-is and document it. Consider standardising YAML IDs to also live under `.recipes` at the next major bump — breaking for downstream users.
 
 ### A4. `getTags()` and `getEstimatedEffortPerOccurrence()`
 - **Status**: [add] missing-but-could-add
@@ -368,7 +368,7 @@ The `init` subcommand should be interactive when args are missing (picocli suppo
 
 ### B8. Maintenance burden + flow direction
 
-Push-based with a manual sync step. The upstream recipe project (`io.github.fiftieshousewife:system-out-to-lombok-log4j`) is the source of truth for evolving the template content. When you fix a build-script issue or extend a skill there, you propagate it to the template repo manually:
+Push-based with a manual sync step. An upstream recipe project (whichever real recipe library this scaffold was originally extracted from) can act as the source of truth for evolving the template content. When you fix a build-script issue or extend a skill there, you propagate it to the template repo manually:
 
 ```
 recipe-project (canonical) ──(rsync + tag)──> template-repo (scaffold source)
@@ -447,13 +447,13 @@ class Init implements Callable<Integer> {
 
 ### Critical Files for Implementation
 
-Reference paths in the upstream `io.github.fiftieshousewife:system-out-to-lombok-log4j` checkout:
+Reference paths in any source-of-truth recipe-project checkout (paths are relative to a typical OpenRewrite recipe library; substitute your own package and recipe names):
 
 - `build.gradle.kts`
 - `gradle/libs.versions.toml`
-- `src/smokeTest/java/io/github/fiftieshousewife/smoketest/SmokeProject.java`
+- `src/smokeTest/java/<rootPackage>/smoketest/SmokeProject.java`
 - `.claude/skills/new-recipe/SKILL.md`
-- `src/main/resources/META-INF/rewrite/system-out-to-lombok.yml`
+- `src/main/resources/META-INF/rewrite/<recipe-name>.yml`
 
 ### Sources
 

@@ -47,6 +47,23 @@ public class RecipeScaffold implements Runnable {
 
     static final String DROPFILE = ".recipescaffold.yml";
 
+    // Literal directory marker in template/src/main/java/__ROOT_PACKAGE__/...
+    // The scaffolder renames this to the slashed form of <rootPackage>.
+    static final String MARKER_DIR = "__ROOT_PACKAGE__";
+
+    // The four source-set roots that may host a __ROOT_PACKAGE__ subdir.
+    // Listed once so the layout is editable in one place.
+    static final List<String> MARKER_PARENTS = List.of(
+            "src/main/java",
+            "src/test/java",
+            "src/integrationTest/java",
+            "src/smokeTest/java");
+
+    // Build artifacts and IDE droppings that should never be carried into
+    // a fresh scaffold. The template's .gitignore already covers these,
+    // but a dirty checkout can have them on disk.
+    static final Set<String> SKIP_DIRS = Set.of(".gradle", "build", ".idea");
+
     @Override
     public void run() {
         new CommandLine(this).usage(System.err);
@@ -178,7 +195,7 @@ public class RecipeScaffold implements Runnable {
             repl.put("{{javaTargetMain}}", javaTargetMain);
             repl.put("{{javaTargetTests}}", javaTargetTests);
             repl.put("{{rewritePluginVersion}}", rewritePluginVersion);
-            repl.put("__ROOT_PACKAGE__", rootPackage);
+            repl.put(MARKER_DIR, rootPackage);
             substituteIn(out, repl);
 
             List<String> residuals = findResiduals(out);
@@ -213,11 +230,9 @@ public class RecipeScaffold implements Runnable {
                 @Override
                 public FileVisitResult preVisitDirectory(Path d, BasicFileAttributes a) throws IOException {
                     Path rel = src.relativize(d);
-                    if (rel.getNameCount() > 0) {
-                        String first = rel.getName(0).toString();
-                        if (first.equals(".gradle") || first.equals("build") || first.equals(".idea")) {
-                            return FileVisitResult.SKIP_SUBTREE;
-                        }
+                    if (rel.getNameCount() > 0
+                            && SKIP_DIRS.contains(rel.getName(0).toString())) {
+                        return FileVisitResult.SKIP_SUBTREE;
                     }
                     Files.createDirectories(dst.resolve(rel));
                     return FileVisitResult.CONTINUE;
@@ -235,14 +250,12 @@ public class RecipeScaffold implements Runnable {
         }
 
         private static void renamePackageMarkers(Path out, String pkgPath) throws IOException {
-            for (String parent : new String[]{
-                    "src/main/java", "src/test/java",
-                    "src/integrationTest/java", "src/smokeTest/java"}) {
+            for (String parent : MARKER_PARENTS) {
                 Path p = out.resolve(parent);
                 if (!Files.isDirectory(p)) {
                     continue;
                 }
-                Path marker = p.resolve("__ROOT_PACKAGE__");
+                Path marker = p.resolve(MARKER_DIR);
                 if (!Files.isDirectory(marker)) {
                     continue;
                 }
@@ -266,7 +279,8 @@ public class RecipeScaffold implements Runnable {
                 ".md", ".properties", ".sh"
         );
         private static final Set<String> TEXT_NAMES = Set.of(
-                ".gitignore"
+                ".gitignore",
+                ".editorconfig"
         );
 
         private static boolean isTextFile(Path p) {

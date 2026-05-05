@@ -84,13 +84,3 @@ The B-numbered items track [`JBANG_TEMPLATE_PLAN.md`](./JBANG_TEMPLATE_PLAN.md) 
 ## See also
 
 - [`maxandersen/rewrite-jbang`](https://github.com/maxandersen/rewrite-jbang) — JBang-distributed *runner* for OpenRewrite recipes (validates our single-file picocli + `jbang app install` pattern; different scope — they run recipes, we scaffold the project that authors them).
-
-## Upstream-flow items (originate in `io.github.fiftieshousewife:system-out-to-lombok-log4j`)
-
-These ship in upstream first; sync into the template when stable. Tracked here only because they touch template payload or build conventions.
-
-- **A14** — extract our own `recipe-library-base` convention plugin (replaces parts of the template's hand-rolled `build.gradle.kts`).
-- **A16** — publish-on-tag CI workflow (template now ships `release.yml`; upstream still queued).
-- **A18** — `recipes.csv` + `community-recipes` PR (upstream first, then template gains it via the `recipe-library` plugin from A14).
-- **A22** — BOM-aligned versions in `libs.versions.toml` (template's TOML still pins individual `8.79.6` entries the BOM should align).
-- **A10** — `MethodMatcher` conversion for the `SystemOut` detector (upstream-only; here for completeness).

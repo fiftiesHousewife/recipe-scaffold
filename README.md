@@ -1,6 +1,6 @@
 # recipescaffold
 
-Scaffold an OpenRewrite recipe project with the build conventions, test harnesses, and pre-publish smoke gate from `system-out-to-lombok-log4j` — plus a CLI that adds new recipes, runs the gate chain, and refreshes the bundled agent skills.
+Scaffold an OpenRewrite recipe project with modern build conventions, three-tier test harnesses, and a pre-publish smoke gate that hard-blocks Maven Central on a real downstream `./gradlew check` — plus a CLI that adds new recipes, runs the gate chain, and refreshes the bundled agent skills.
 
 > **Status: beta (2026-05-05).** All four recipe `--type` values (`java`, `scanning`, `yaml`, `refaster`), both `--test-style` variants (`block`, `method`), and four subcommands (`init`, `add-recipe`, `verify-gates`, `upgrade-skills`) shipped. CI exercises the full scaffold-and-build chain in three parallel jobs plus actionlint. See [`BACKLOG.md`](./BACKLOG.md) for queued items.
 
@@ -98,7 +98,7 @@ Replaces each subdir of the project's `.claude/skills/` with the corresponding u
 - Refaster recipe support pre-wired: `org.openrewrite:rewrite-templating` annotation processor + `com.google.errorprone:error_prone_core` (with the canonical `auto-service-annotations` and `dataflow-errorprone` excludes); `compileJava` adds `-Arewrite.javaParserClasspathFrom=resources`.
 - Three source sets: `test` (unit + `RewriteTest` integration), `integrationTest` (`withToolingApi()` end-to-end), `smokeTest` (scaffolds `/tmp` Gradle projects per matrix cell).
 - `publishAndReleaseToMavenCentral` structurally `dependsOn("smokeTest")` — there's no path to Central that skips the gate.
-- Apache 2.0 `LICENSE`, `.editorconfig`, `dependabot.yml`, three GitHub Actions workflows (`gradle.yml` for CI, `wrapper-validation.yml` for wrapper-jar checksum, `release.yml` for tag-triggered Maven Central publish).
+- Apache 2.0 `LICENSE`, `.editorconfig`, three GitHub Actions workflows (`gradle.yml` for CI, `wrapper-validation.yml` for wrapper-jar checksum, `release.yml` for tag-triggered Maven Central publish).
 - `AGENTS.md` (vendor-neutral agent guidance) + `CLAUDE.md` stub forwarding to it. Four `.claude/skills/` shipped: `new-gradle-project`, `new-recipe`, `recipe-testing`, `smoke-test`.
 - One `ExampleRecipe` no-op so a freshly scaffolded project's `./gradlew check smokeTest` is green from the first commit.
 - `snippets/` — copies of the `add-recipe` source-of-truth fragments. Carried into the scaffolded project so `add-recipe` resolves them locally; the init-time substitutor explicitly skips this directory so the snippet-time `{{...}}` markers survive.

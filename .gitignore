@@ -34,3 +34,4 @@
 # /tmp/picocli-cache/
 # /tmp/recipe-template-jbang-smoke/
 # /tmp/recipe-template-ci-smoke/
+/.claude/scheduled_tasks.lock
