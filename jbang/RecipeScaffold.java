@@ -180,23 +180,7 @@ public class RecipeScaffold implements Runnable {
 
             renamePackageMarkers(out, rootPackage.replace('.', '/'));
 
-            Map<String, String> repl = new LinkedHashMap<>();
-            repl.put("{{group}}", group);
-            repl.put("{{artifact}}", artifact);
-            repl.put("{{rootPackage}}", rootPackage);
-            repl.put("{{initialVersion}}", initialVersion);
-            repl.put("{{recipeName}}", recipeName);
-            repl.put("{{recipeDescription}}", recipeDescription);
-            repl.put("{{githubOrg}}", githubOrg);
-            repl.put("{{githubRepo}}", githubRepo);
-            repl.put("{{authorId}}", authorId);
-            repl.put("{{authorName}}", authorName);
-            repl.put("{{authorEmail}}", authorEmail);
-            repl.put("{{javaTargetMain}}", javaTargetMain);
-            repl.put("{{javaTargetTests}}", javaTargetTests);
-            repl.put("{{rewritePluginVersion}}", rewritePluginVersion);
-            repl.put(MARKER_DIR, rootPackage);
-            substituteIn(out, repl);
+            substituteIn(out, buildReplacements());
 
             List<String> residuals = findResiduals(out);
             if (!residuals.isEmpty()) {
@@ -211,7 +195,7 @@ public class RecipeScaffold implements Runnable {
 
             if (verify) {
                 System.out.println("running ./gradlew check smokeTest in " + out);
-                int rc = runGradle(out);
+                int rc = runGradle(out, List.of("check", "smokeTest"));
                 if (rc != 0) {
                     System.err.println("FAIL: ./gradlew check smokeTest exited " + rc);
                     return rc;
@@ -221,9 +205,6 @@ public class RecipeScaffold implements Runnable {
             return 0;
         }
 
-        private static Path findTemplateDir() {
-            return RecipeScaffold.findTemplateDir();
-        }
 
         private static void copyTree(Path src, Path dst) throws IOException {
             Files.walkFileTree(src, new SimpleFileVisitor<Path>() {
@@ -270,10 +251,6 @@ public class RecipeScaffold implements Runnable {
             }
         }
 
-        private static void deleteRecursively(Path p) throws IOException {
-            RecipeScaffold.deleteRecursively(p);
-        }
-
         private static final Set<String> TEXT_EXTS = Set.of(
                 ".kts", ".gradle", ".toml", ".java", ".yml", ".yaml",
                 ".md", ".properties", ".sh"
@@ -300,6 +277,26 @@ public class RecipeScaffold implements Runnable {
             return rel.getNameCount() > 0 && rel.getName(0).toString().equals("snippets");
         }
 
+        Map<String, String> buildReplacements() {
+            Map<String, String> repl = new LinkedHashMap<>();
+            repl.put("{{group}}", group);
+            repl.put("{{artifact}}", artifact);
+            repl.put("{{rootPackage}}", rootPackage);
+            repl.put("{{initialVersion}}", initialVersion);
+            repl.put("{{recipeName}}", recipeName);
+            repl.put("{{recipeDescription}}", recipeDescription);
+            repl.put("{{githubOrg}}", githubOrg);
+            repl.put("{{githubRepo}}", githubRepo);
+            repl.put("{{authorId}}", authorId);
+            repl.put("{{authorName}}", authorName);
+            repl.put("{{authorEmail}}", authorEmail);
+            repl.put("{{javaTargetMain}}", javaTargetMain);
+            repl.put("{{javaTargetTests}}", javaTargetTests);
+            repl.put("{{rewritePluginVersion}}", rewritePluginVersion);
+            repl.put(MARKER_DIR, rootPackage);
+            return repl;
+        }
+
         private static void substituteIn(Path root, Map<String, String> repl) throws IOException {
             try (var stream = Files.walk(root)) {
                 for (Path p : (Iterable<Path>) stream::iterator) {
@@ -310,10 +307,7 @@ public class RecipeScaffold implements Runnable {
                         continue;
                     }
                     String content = Files.readString(p, StandardCharsets.UTF_8);
-                    String updated = content;
-                    for (Map.Entry<String, String> e : repl.entrySet()) {
-                        updated = updated.replace(e.getKey(), e.getValue());
-                    }
+                    String updated = applySubstitutions(content, repl);
                     if (!updated.equals(content)) {
                         Files.writeString(p, updated, StandardCharsets.UTF_8);
                     }
@@ -366,9 +360,6 @@ public class RecipeScaffold implements Runnable {
             Files.writeString(out.resolve(DROPFILE), yaml, StandardCharsets.UTF_8);
         }
 
-        private static int runGradle(Path dir) throws IOException, InterruptedException {
-            return RecipeScaffold.runGradle(dir, List.of("check", "smokeTest"));
-        }
     }
 
     static int runGradle(Path dir, List<String> tasks) throws IOException, InterruptedException {
@@ -485,12 +476,8 @@ public class RecipeScaffold implements Runnable {
                 return 2;
             }
 
-            Path root = projectDir != null
-                    ? projectDir.toAbsolutePath().normalize()
-                    : findProjectRoot();
+            Path root = resolveProjectRoot(projectDir);
             if (root == null) {
-                System.err.println("could not find " + DROPFILE + " walking upward from cwd.");
-                System.err.println("pass --directory <project-root> or run from inside a scaffolded project.");
                 return 2;
             }
             Map<String, String> drop = readDropfile(root.resolve(DROPFILE));
@@ -567,9 +554,6 @@ public class RecipeScaffold implements Runnable {
                     .resolve(name + ".java");
         }
 
-        private static Path findProjectRoot() {
-            return RecipeScaffold.findProjectRoot();
-        }
 
         private static Map<String, String> readDropfile(Path file) throws IOException {
             Map<String, String> m = new LinkedHashMap<>();
@@ -592,55 +576,7 @@ public class RecipeScaffold implements Runnable {
             return m;
         }
 
-        private static String applySubstitutions(String s, Map<String, String> repl) {
-            String out = s;
-            for (Map.Entry<String, String> e : repl.entrySet()) {
-                out = out.replace(e.getKey(), e.getValue());
-            }
-            return out;
-        }
 
-        private static boolean isPascalCase(String s) {
-            if (s == null || s.isEmpty()) {
-                return false;
-            }
-            if (!Character.isUpperCase(s.charAt(0))) {
-                return false;
-            }
-            for (int i = 0; i < s.length(); i++) {
-                char c = s.charAt(i);
-                if (!Character.isLetterOrDigit(c)) {
-                    return false;
-                }
-            }
-            return true;
-        }
-
-        private static String humanise(String pascal) {
-            StringBuilder sb = new StringBuilder();
-            for (int i = 0; i < pascal.length(); i++) {
-                char c = pascal.charAt(i);
-                if (i > 0 && Character.isUpperCase(c)) {
-                    sb.append(' ').append(Character.toLowerCase(c));
-                } else {
-                    sb.append(c);
-                }
-            }
-            return sb.toString();
-        }
-
-        private static String kebabCase(String pascal) {
-            StringBuilder sb = new StringBuilder();
-            for (int i = 0; i < pascal.length(); i++) {
-                char c = pascal.charAt(i);
-                if (i > 0 && Character.isUpperCase(c)) {
-                    sb.append('-').append(Character.toLowerCase(c));
-                } else {
-                    sb.append(Character.toLowerCase(c));
-                }
-            }
-            return sb.toString();
-        }
     }
 
     @Command(
@@ -656,20 +592,8 @@ public class RecipeScaffold implements Runnable {
 
         @Override
         public Integer call() throws Exception {
-            Path root = projectDir != null
-                    ? projectDir.toAbsolutePath().normalize()
-                    : findProjectRoot();
+            Path root = resolveProjectRoot(projectDir);
             if (root == null) {
-                System.err.println("could not find " + DROPFILE + " walking upward from cwd.");
-                System.err.println("pass --directory <project-root> or run from inside a scaffolded project.");
-                return 2;
-            }
-            // Require the dropfile even when --directory is explicit — it marks
-            // "this is a recipescaffold project" and so guarantees the smokeTest
-            // task and the gradle wrapper are present.
-            if (!Files.isRegularFile(root.resolve(DROPFILE))) {
-                System.err.println("FAIL: " + DROPFILE + " not found at " + root);
-                System.err.println("verify-gates only works in projects scaffolded by recipescaffold.");
                 return 2;
             }
             // check, integrationTest, and smokeTest are listed explicitly so the
@@ -685,9 +609,6 @@ public class RecipeScaffold implements Runnable {
             return 0;
         }
 
-        private static Path findProjectRoot() {
-            return RecipeScaffold.findProjectRoot();
-        }
     }
 
     @Command(
@@ -711,16 +632,8 @@ public class RecipeScaffold implements Runnable {
 
         @Override
         public Integer call() throws Exception {
-            Path root = projectDir != null
-                    ? projectDir.toAbsolutePath().normalize()
-                    : findProjectRoot();
+            Path root = resolveProjectRoot(projectDir);
             if (root == null) {
-                System.err.println("could not find " + DROPFILE + " walking upward from cwd.");
-                System.err.println("pass --directory <project-root> or run from inside a scaffolded project.");
-                return 2;
-            }
-            if (!Files.isRegularFile(root.resolve(DROPFILE))) {
-                System.err.println("FAIL: " + DROPFILE + " not found at " + root);
                 return 2;
             }
 
@@ -782,6 +695,24 @@ public class RecipeScaffold implements Runnable {
         return null;
     }
 
+    // Resolve a project root for a subcommand and validate the dropfile is
+    // present. Prints diagnostics and returns null on failure so the caller
+    // can `if (root == null) return 2;`. Used by add-recipe, verify-gates,
+    // upgrade-skills — all of which require a recipescaffold-shaped project.
+    static Path resolveProjectRoot(Path explicit) {
+        Path root = explicit != null ? explicit.toAbsolutePath().normalize() : findProjectRoot();
+        if (root == null) {
+            System.err.println("could not find " + DROPFILE + " walking upward from cwd.");
+            System.err.println("pass --directory <project-root> or run from inside a scaffolded project.");
+            return null;
+        }
+        if (!Files.isRegularFile(root.resolve(DROPFILE))) {
+            System.err.println("FAIL: " + DROPFILE + " not found at " + root);
+            return null;
+        }
+        return root;
+    }
+
     static void deleteRecursively(Path p) throws IOException {
         if (!Files.exists(p)) {
             return;
@@ -819,5 +750,55 @@ public class RecipeScaffold implements Runnable {
                 return FileVisitResult.CONTINUE;
             }
         });
+    }
+
+    static String applySubstitutions(String s, Map<String, String> repl) {
+        String out = s;
+        for (Map.Entry<String, String> e : repl.entrySet()) {
+            out = out.replace(e.getKey(), e.getValue());
+        }
+        return out;
+    }
+
+    static boolean isPascalCase(String s) {
+        if (s == null || s.isEmpty()) {
+            return false;
+        }
+        if (!Character.isUpperCase(s.charAt(0))) {
+            return false;
+        }
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (!Character.isLetterOrDigit(c)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    static String humanise(String pascal) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < pascal.length(); i++) {
+            char c = pascal.charAt(i);
+            if (i > 0 && Character.isUpperCase(c)) {
+                sb.append(' ').append(Character.toLowerCase(c));
+            } else {
+                sb.append(c);
+            }
+        }
+        return sb.toString();
+    }
+
+    static String kebabCase(String pascal) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < pascal.length(); i++) {
+            char c = pascal.charAt(i);
+            if (i > 0 && Character.isUpperCase(c)) {
+                sb.append('-').append(Character.toLowerCase(c));
+            } else {
+                sb.append(Character.toLowerCase(c));
+            }
+        }
+        return sb.toString();
     }
 }
