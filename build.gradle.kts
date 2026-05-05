@@ -1,10 +1,21 @@
 plugins {
     java
+    application
     alias(libs.plugins.versions)
 }
 
 repositories {
     mavenCentral()
+}
+
+application {
+    // The fat jar's Main-Class. Also drives `./gradlew run --args=...` and
+    // `./gradlew installDist`, which produces bin/recipescaffold and
+    // bin/recipescaffold.bat launcher scripts at
+    // build/install/recipescaffold/. Corporate-friendly path: clone +
+    // ./gradlew installDist + run the script. No JBang or brew required.
+    mainClass.set("recipescaffold.RecipeScaffold")
+    applicationName = "recipescaffold"
 }
 
 // No toolchain spec on purpose: the harness is a developer/CI tool, run
@@ -46,6 +57,48 @@ tasks.withType<Test> {
         showStandardStreams = true
     }
 }
+
+// Wrapper de-dup. The canonical Gradle wrapper assets ship to scaffolded
+// users from template/. The repo-root copy here is derived: the harness
+// build needs them at the root to run, but the template's are the source of
+// truth. `syncWrappersFromTemplate` copies template -> root; `check` runs
+// `verifyWrapperParity` so a drift in either direction fails CI.
+val syncWrappersFromTemplate by tasks.registering(Copy::class) {
+    description = "Copy gradle wrapper assets from template/ to repo root."
+    group = "build setup"
+    from("template/gradle/wrapper") {
+        into("gradle/wrapper")
+    }
+    from("template") {
+        include("gradlew", "gradlew.bat")
+        into(".")
+    }
+    into(".")
+    // Copy preserves source POSIX permissions on POSIX FS (gradlew is 0755);
+    // Windows users get the regenerated content via this task on next pull.
+}
+
+val verifyWrapperParity by tasks.registering {
+    description = "Fail if root wrapper assets diverge from template's."
+    group = "verification"
+    doLast {
+        val pairs = listOf(
+                "gradle/wrapper/gradle-wrapper.jar" to "template/gradle/wrapper/gradle-wrapper.jar",
+                "gradle/wrapper/gradle-wrapper.properties" to "template/gradle/wrapper/gradle-wrapper.properties",
+                "gradlew" to "template/gradlew",
+                "gradlew.bat" to "template/gradlew.bat"
+        )
+        val drift = pairs.filter { (root, tpl) ->
+            !file(root).readBytes().contentEquals(file(tpl).readBytes())
+        }
+        if (drift.isNotEmpty()) {
+            throw GradleException(
+                    "Wrapper drift: ${drift.map { it.first }}. " +
+                    "Run ./gradlew syncWrappersFromTemplate to fix.")
+        }
+    }
+}
+tasks.named("check") { dependsOn(verifyWrapperParity) }
 
 // Fat jar so non-JBang users can `java -jar build/libs/recipescaffold.jar init …`.
 // Bundles picocli (the only runtime dep) so the jar is self-contained.
