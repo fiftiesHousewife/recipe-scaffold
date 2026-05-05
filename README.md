@@ -6,17 +6,74 @@ Scaffold an [OpenRewrite](https://docs.openrewrite.org) recipe project with mode
 
 Repo: <https://github.com/fiftiesHousewife/recipescaffold>
 
-## Three ways to run it
+## Five ways to run it
 
-The CLI is a [picocli](https://picocli.info) script in `jbang/RecipeScaffold.java`. Pick whichever feels best:
+The CLI is a [picocli](https://picocli.info) script at `jbang/RecipeScaffold.java`. Same code, five distribution paths — pick whichever your environment makes cheapest:
 
-| Path | One-time setup | Invocation |
-| --- | --- | --- |
-| **[JBang](https://www.jbang.dev) catalog** *(shortest)* | `brew install jbang` (or `curl -Ls https://sh.jbang.dev \| bash -s - app setup`) | `jbang recipescaffold@fiftiesHousewife/recipescaffold init …` |
-| **JBang direct** | same | `jbang jbang/RecipeScaffold.java init …` (from a checkout) |
-| **Fat jar** *(no JBang required)* | `./gradlew jar` produces `build/libs/recipescaffold.jar` | `java -jar build/libs/recipescaffold.jar init …` |
+| Path | One-time setup | Invocation | Best for |
+| --- | --- | --- | --- |
+| **[JBang](https://www.jbang.dev) catalog** | install JBang once | `jbang recipescaffold@fiftiesHousewife/recipescaffold init …` | individual devs |
+| **JBang direct** | install JBang once + clone repo | `jbang jbang/RecipeScaffold.java init …` | hacking on the scaffolder itself |
+| **`./gradlew run`** | clone repo only | `./gradlew run --args="init --group=…"` | trying it once without installing anything global |
+| **`./gradlew installDist`** *(no JBang)* | `./gradlew installDist` once | `build/install/recipescaffold/bin/recipescaffold init …` | corporate/managed envs that block `brew` |
+| **Fat jar** *(no JBang)* | `./gradlew jar` once | `java -jar build/libs/recipescaffold.jar init …` | shipping into another build/CI image |
 
-A bash fallback (`tests/ci-smoke.sh`) reproduces just the `init` step without JBang or Java. See [Fallback paths](#fallback-paths).
+A bash fallback (`tests/ci-smoke.sh`) reproduces just the `init` step without JBang **or** Java. See [Fallback paths](#fallback-paths).
+
+### Installing JBang
+
+```bash
+brew install jbang                                     # macOS
+sdk install jbang                                      # via SDKMAN!
+choco install jbang                                    # Windows
+curl -Ls https://sh.jbang.dev | bash -s - app setup    # POSIX universal
+```
+
+The `app setup` form drops `jbang` into `~/.jbang/bin/`, prepends it to your `PATH` in shell-rc files, and works without sudo.
+
+### What JBang gives you
+
+JBang is a launcher for single-file Java/Kotlin/Groovy scripts. The first line of `jbang/RecipeScaffold.java`:
+
+```java
+///usr/bin/env jbang "$0" "$@" ; exit $?
+//JAVA 17+
+//DEPS info.picocli:picocli:4.7.7
+```
+
+is interpreted by JBang to mean: minimum JDK 17, this single dep on the runtime classpath, then run the file's `main` method. The `///usr/bin/env` shebang lets you `chmod +x` and run the file directly. The `//DEPS`, `//JAVA`, and shebang lines are valid Java line comments, so the same file compiles cleanly with `javac --release 17 -cp picocli.jar`.
+
+**Catalogs.** A [`jbang-catalog.json`](./jbang-catalog.json) at a repo root maps short aliases to scripts. Resolution: `jbang <alias>@<user>/<repo>` fetches `https://github.com/<user>/<repo>/blob/main/jbang-catalog.json` and looks up the alias. We ship one alias, `recipescaffold`, pointing at `jbang/RecipeScaffold.java`. JBang caches the resolved script under `~/.jbang/cache/` so subsequent invocations are fast.
+
+**Trust.** First-time invocation of a remote script prompts for trust. Pre-trust with:
+
+```bash
+jbang trust add https://github.com/fiftiesHousewife/recipescaffold
+```
+
+**Permanent install.** Drop `recipescaffold` into your `PATH` so you can call it without `jbang`:
+
+```bash
+jbang app install recipescaffold@fiftiesHousewife/recipescaffold
+recipescaffold init --group=io.github.acme …
+```
+
+**Pinning to a version.** Catalog refs default to `main`. To pin to a release tag:
+
+```bash
+jbang recipescaffold@fiftiesHousewife/recipescaffold/v0.2.0 init …
+```
+
+**JBang vs. fat jar — when to use which.** JBang wins when you want one-line install and short invocations. The fat jar (`./gradlew jar` → `java -jar …`) wins when you're embedding the scaffolder into another tool, shipping it into a Docker image, or running in environments where you can't `curl` install scripts. Both invoke the same compiled bytecode; choose by ergonomics.
+
+**Other JBang directives** the script *could* use (we don't currently):
+- `//SOURCES` — additional source files to compile alongside (would let us split into multiple files when refactoring §A14 lands).
+- `//FILES` — non-Java resources to bundle.
+- `//RUNTIME_OPTIONS` — JVM args.
+- `//JAVAC_OPTIONS` — compiler flags.
+- `//NATIVE` — request native-image build via GraalVM.
+
+Reference: [JBang documentation](https://www.jbang.dev/documentation/jbang/latest/usage.html).
 
 ## Quickstart
 
@@ -93,6 +150,58 @@ jbang recipescaffold@fiftiesHousewife/recipescaffold upgrade-skills [--dry-run]
 ```
 
 Replaces each subdir of the project's `.claude/skills/` with the corresponding upstream copy from `template/.claude/skills/`. Iterates only over upstream subdirs, so any user-added skill is left alone. `--dry-run` previews. Accepts `--directory`, `--template-dir`.
+
+## Cheatsheet for the scaffolded project
+
+Once you're inside `<your-project>` and have run `init`, these are the commands you'll use day-to-day. The first column is what you run; the second is what to expect.
+
+### Build & test
+
+| Command | What it does |
+| --- | --- |
+| `./gradlew check` | Run unit tests (`test`) + integration tests (`integrationTest`, embedded Gradle). Default verification gate. |
+| `./gradlew test` | Just the unit / `RewriteTest` suite. Fastest feedback loop. |
+| `./gradlew test --tests "MyRecipeTest"` | Single test class. Useful while iterating. |
+| `./gradlew integrationTest` | Just the embedded-Gradle suite. Slower; pulls a real `GradleProject` marker. |
+| `./gradlew smokeTest` | Scaffolds throwaway `/tmp` projects per matrix cell, runs the recipe, verifies output compiles. The pre-publish gate. |
+| `./gradlew jacocoTestReport` | HTML coverage report under `build/reports/jacoco/`. |
+| `./gradlew clean` | Wipe `build/`. |
+
+### Recipe authoring
+
+| Command | What it does |
+| --- | --- |
+| `jbang recipescaffold@fiftiesHousewife/recipescaffold add-recipe --name MyRecipe` | Add a Java recipe + test. |
+| `… add-recipe --name MyRecipe --type scanning` | Add a `ScanningRecipe<Acc>` two-pass skeleton. |
+| `… add-recipe --name MyRecipe --type yaml` | Add a YAML composition manifest under `META-INF/rewrite/`. |
+| `… add-recipe --name MyRecipe --type refaster` | Add a Refaster template-pair holder; the AP generates `MyRecipeRecipes`. |
+| `… add-recipe --name MyRecipe --test-style method` | Use the one-line `java(...)` test scaffold (java/scanning only). |
+| `… add-recipe --name MyRecipe --no-tests` | Skip the test file. |
+| `… verify-gates` | Run `check integrationTest smokeTest` — full local pre-publish gate. |
+| `… upgrade-skills [--dry-run]` | Refresh the bundled `.claude/skills/` from the upstream scaffolder. |
+
+### Dependency hygiene
+
+| Command | What it does |
+| --- | --- |
+| `./gradlew dependencyUpdates` | Ben-Manes versions plugin: list dependencies with newer releases. |
+| `./gradlew dependencies` | Show the resolved dependency tree. |
+| `./gradlew :buildEnvironment` | Show the Gradle plugin classpath (catches plugin-version drift). |
+
+### Publishing
+
+| Command | What it does |
+| --- | --- |
+| `./gradlew publishToMavenLocal` | Stage to `~/.m2`. Local consumers can resolve. |
+| `./gradlew publishAndReleaseToMavenCentral` | Full release path. Structurally `dependsOn("smokeTest")` — no path skips the gate. |
+| `git tag -a vX.Y.Z -m "..." && git push --tags` | Triggers `release.yml` for an automated tag-driven release. |
+
+### Wrapper hygiene
+
+| Command | What it does |
+| --- | --- |
+| `./gradlew wrapper --gradle-version=9.4.1` | Bump the Gradle wrapper. |
+| `./gradlew wrapper --gradle-version=9.5.0 --distribution-type=bin` | Same, with `-bin` (smaller download than the default `-all`). |
 
 ## What you get
 
