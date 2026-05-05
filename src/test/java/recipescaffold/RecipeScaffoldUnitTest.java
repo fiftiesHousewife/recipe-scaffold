@@ -1,11 +1,18 @@
 package recipescaffold;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import picocli.CommandLine;
 
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
 import java.lang.reflect.Field;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -117,6 +124,246 @@ class RecipeScaffoldUnitTest {
                 .containsEntry("{{javaTargetTests}}", "25")
                 .containsEntry("{{rewritePluginVersion}}", "7.30.0")
                 .containsEntry(RecipeScaffold.MARKER_DIR, "io.github.acme");
+    }
+
+    @Test
+    void readDropfile_parsesQuotedAndUnquotedAndSkipsCommentsBlanks(@TempDir Path tmp) throws Exception {
+        Path file = tmp.resolve(".recipescaffold.yml");
+        Files.writeString(file, String.join("\n",
+                "# leading comment",
+                "",
+                "recipescaffoldVersion: \"0.2.0\"",
+                "  group:    io.example  ",
+                "artifact: \"demo\"",
+                "rootPackage: io.example.demo",
+                "# trailing comment",
+                "javaTargetMain: 17",
+                "javaTargetTests: \"25\"",
+                "malformed-no-colon",
+                ":leadingColonIsIgnored",
+                ""
+        ), StandardCharsets.UTF_8);
+
+        Map<String, String> drop = RecipeScaffold.readDropfile(file);
+
+        assertThat(drop)
+                .containsEntry("recipescaffoldVersion", "0.2.0")
+                .containsEntry("group", "io.example")
+                .containsEntry("artifact", "demo")
+                .containsEntry("rootPackage", "io.example.demo")
+                .containsEntry("javaTargetMain", "17")
+                .containsEntry("javaTargetTests", "25")
+                .doesNotContainKey("malformed-no-colon")
+                .doesNotContainKey("");
+    }
+
+    @Test
+    void addRecipe_rejectsUnknownType(@TempDir Path tmp) throws Exception {
+        Path project = newSyntheticProject(tmp);
+        ExecResult r = runScaffold(project, "add-recipe", "--name", "Foo", "--type", "made-up");
+        assertThat(r.exitCode).isEqualTo(2);
+        assertThat(r.stderr).contains("--type=made-up");
+    }
+
+    @Test
+    void addRecipe_rejectsLowerCaseName(@TempDir Path tmp) throws Exception {
+        Path project = newSyntheticProject(tmp);
+        ExecResult r = runScaffold(project, "add-recipe", "--name", "fooBar");
+        assertThat(r.exitCode).isEqualTo(2);
+        assertThat(r.stderr).contains("PascalCase");
+    }
+
+    @Test
+    void addRecipe_rejectsBadTestStyle(@TempDir Path tmp) throws Exception {
+        Path project = newSyntheticProject(tmp);
+        ExecResult r = runScaffold(project, "add-recipe", "--name", "Foo", "--test-style", "weird");
+        assertThat(r.exitCode).isEqualTo(2);
+        assertThat(r.stderr).contains("--test-style=weird");
+    }
+
+    @Test
+    void addRecipe_rejectsMethodStyleWithYaml(@TempDir Path tmp) throws Exception {
+        Path project = newSyntheticProject(tmp);
+        ExecResult r = runScaffold(project, "add-recipe",
+                "--name", "Foo", "--type", "yaml", "--test-style", "method");
+        assertThat(r.exitCode).isEqualTo(2);
+        assertThat(r.stderr).contains("--test-style=method");
+        assertThat(r.stderr).contains("--type=yaml");
+    }
+
+    @Test
+    void addRecipe_failsWhenDropfileMissingRootPackage(@TempDir Path tmp) throws Exception {
+        Path project = newSyntheticProject(tmp);
+        // Overwrite the dropfile with one missing rootPackage.
+        Files.writeString(project.resolve(".recipescaffold.yml"),
+                "group: io.example\nartifact: demo\n", StandardCharsets.UTF_8);
+        ExecResult r = runScaffold(project, "add-recipe", "--name", "Foo");
+        assertThat(r.exitCode).isEqualTo(3);
+        assertThat(r.stderr).contains("rootPackage");
+    }
+
+    @Test
+    void addRecipe_writesJavaRecipeAndTest(@TempDir Path tmp) throws Exception {
+        Path project = newSyntheticProject(tmp);
+        ExecResult r = runScaffold(project, "add-recipe", "--name", "FooBar");
+        assertThat(r.exitCode).isZero();
+        Path main = project.resolve("src/main/java/io/example/demo/recipes/FooBar.java");
+        Path test = project.resolve("src/test/java/io/example/demo/recipes/FooBarTest.java");
+        assertThat(main).exists();
+        assertThat(test).exists();
+        String body = Files.readString(main, StandardCharsets.UTF_8);
+        assertThat(body).contains("package io.example.demo.recipes;");
+        assertThat(body).contains("public class FooBar");
+    }
+
+    @Test
+    void addRecipe_yamlEmitsManifestUnderResources(@TempDir Path tmp) throws Exception {
+        Path project = newSyntheticProject(tmp);
+        ExecResult r = runScaffold(project, "add-recipe", "--name", "MyComp", "--type", "yaml");
+        assertThat(r.exitCode).isZero();
+        assertThat(project.resolve("src/main/resources/META-INF/rewrite/my-comp.yml")).exists();
+        assertThat(project.resolve("src/test/java/io/example/demo/recipes/MyCompTest.java")).exists();
+    }
+
+    @Test
+    void addRecipe_refusesOverwriteWithoutForce(@TempDir Path tmp) throws Exception {
+        Path project = newSyntheticProject(tmp);
+        assertThat(runScaffold(project, "add-recipe", "--name", "Foo").exitCode).isZero();
+        ExecResult r = runScaffold(project, "add-recipe", "--name", "Foo");
+        assertThat(r.exitCode).isEqualTo(2);
+        assertThat(r.stderr).contains("refusing to overwrite");
+    }
+
+    @Test
+    void addRecipe_skipsTestWhenRequested(@TempDir Path tmp) throws Exception {
+        Path project = newSyntheticProject(tmp);
+        assertThat(runScaffold(project, "add-recipe", "--name", "Foo", "--no-tests").exitCode).isZero();
+        assertThat(project.resolve("src/main/java/io/example/demo/recipes/Foo.java")).exists();
+        assertThat(project.resolve("src/test/java/io/example/demo/recipes/FooTest.java")).doesNotExist();
+    }
+
+    @Test
+    void addRecipe_failsWhenSnippetsDirMissing(@TempDir Path tmp) throws Exception {
+        Path project = newSyntheticProject(tmp);
+        deleteRecursively(project.resolve("snippets"));
+        ExecResult r = runScaffold(project, "add-recipe", "--name", "Foo");
+        assertThat(r.exitCode).isEqualTo(3);
+        assertThat(r.stderr).contains("snippets dir not found");
+    }
+
+    @Test
+    void verifyGates_exits2WhenNoDropfile(@TempDir Path tmp) throws Exception {
+        ExecResult r = runScaffold(tmp, "verify-gates", "--directory", tmp.toString());
+        assertThat(r.exitCode).isEqualTo(2);
+        assertThat(r.stderr).contains(".recipescaffold.yml not found");
+    }
+
+    @Test
+    void upgradeSkills_exits2WhenNoDropfile(@TempDir Path tmp) throws Exception {
+        ExecResult r = runScaffold(tmp, "upgrade-skills", "--directory", tmp.toString());
+        assertThat(r.exitCode).isEqualTo(2);
+        assertThat(r.stderr).contains(".recipescaffold.yml not found");
+    }
+
+    private static Path newSyntheticProject(Path tmp) throws Exception {
+        Path project = tmp.resolve("synth");
+        Files.createDirectories(project);
+        copyTree(repoRoot().resolve("template/snippets"), project.resolve("snippets"));
+        Files.writeString(project.resolve(".recipescaffold.yml"), String.join("\n",
+                "recipescaffoldVersion: \"0.2.0\"",
+                "group: \"io.example\"",
+                "artifact: \"demo\"",
+                "rootPackage: \"io.example.demo\"",
+                "javaTargetMain: \"17\"",
+                "javaTargetTests: \"25\"",
+                ""
+        ), StandardCharsets.UTF_8);
+        return project;
+    }
+
+    private static Path repoRoot() {
+        // Tests run with the repo as cwd via Gradle; fall back to walking upward
+        // for IDE runs where cwd may be the test source set.
+        Path here = Path.of("").toAbsolutePath();
+        for (Path p = here; p != null; p = p.getParent()) {
+            if (Files.isDirectory(p.resolve("template/snippets"))) {
+                return p;
+            }
+        }
+        throw new IllegalStateException("could not locate repo root from " + here);
+    }
+
+    private static void copyTree(Path src, Path dst) throws Exception {
+        Files.walk(src).forEach(p -> {
+            try {
+                Path target = dst.resolve(src.relativize(p));
+                if (Files.isDirectory(p)) {
+                    Files.createDirectories(target);
+                } else {
+                    Files.createDirectories(target.getParent());
+                    Files.copy(p, target);
+                }
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        });
+    }
+
+    private static void deleteRecursively(Path p) throws Exception {
+        if (!Files.exists(p)) {
+            return;
+        }
+        Files.walk(p)
+                .sorted((a, b) -> b.getNameCount() - a.getNameCount())
+                .forEach(x -> {
+                    try {
+                        Files.delete(x);
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+    }
+
+    private record ExecResult(int exitCode, String stdout, String stderr) {}
+
+    private static ExecResult runScaffold(Path cwd, String... args) {
+        // Drive the picocli command tree the same way main() does, with the
+        // working-dir-sensitive options pinned via --directory so we don't
+        // mutate process cwd. Subcommands print diagnostics directly to
+        // System.out/err, so capturing those is what matters.
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ByteArrayOutputStream err = new ByteArrayOutputStream();
+        String[] effective = needsDirectory(args) ? withDirectory(args, cwd) : args;
+        PrintStream origOut = System.out;
+        PrintStream origErr = System.err;
+        try {
+            System.setOut(new PrintStream(out, true, StandardCharsets.UTF_8));
+            System.setErr(new PrintStream(err, true, StandardCharsets.UTF_8));
+            int rc = new CommandLine(new RecipeScaffold()).execute(effective);
+            return new ExecResult(rc, out.toString(StandardCharsets.UTF_8), err.toString(StandardCharsets.UTF_8));
+        } finally {
+            System.setOut(origOut);
+            System.setErr(origErr);
+        }
+    }
+
+    private static boolean needsDirectory(String[] args) {
+        for (String a : args) {
+            if ("--directory".equals(a) || "-d".equals(a)) {
+                return false;
+            }
+        }
+        return args.length > 0 && (
+                "add-recipe".equals(args[0]) || "verify-gates".equals(args[0]) || "upgrade-skills".equals(args[0]));
+    }
+
+    private static String[] withDirectory(String[] args, Path dir) {
+        String[] out = new String[args.length + 2];
+        out[0] = args[0];
+        out[1] = "--directory";
+        out[2] = dir.toString();
+        System.arraycopy(args, 1, out, 3, args.length - 1);
+        return out;
     }
 
     private static void setField(Object target, String name, Object value) throws Exception {

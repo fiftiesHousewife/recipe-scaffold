@@ -511,6 +511,21 @@ public class RecipeScaffold implements Runnable {
             repl.put("{{recipeId}}", recipeId);
             repl.put("{{recipeKebab}}", kebabCase(name));
 
+            int rc = writeRecipeFile(root, snippets, kind, pkg, repl);
+            if (rc != 0) {
+                return rc;
+            }
+            if (!skipTests) {
+                rc = writeTestFile(root, snippets, kind, pkg, repl);
+                if (rc != 0) {
+                    return rc;
+                }
+            }
+            return 0;
+        }
+
+        private int writeRecipeFile(Path root, Path snippets, RecipeKind kind,
+                                    String pkg, Map<String, String> repl) throws IOException {
             Path mainFile = mainOutputPath(root, kind, pkg, name);
             Files.createDirectories(mainFile.getParent());
             if (Files.exists(mainFile) && !force) {
@@ -522,25 +537,26 @@ public class RecipeScaffold implements Runnable {
                     repl);
             Files.writeString(mainFile, mainBody, StandardCharsets.UTF_8);
             System.out.println("wrote " + mainFile);
+            return 0;
+        }
 
-            if (!skipTests) {
-                Path testDir = root.resolve("src/test/java").resolve(pkg.replace('.', '/'));
-                Files.createDirectories(testDir);
-                Path testFile = testDir.resolve(name + "Test.java");
-                if (Files.exists(testFile) && !force) {
-                    System.err.println("refusing to overwrite " + testFile + " (pass --force).");
-                    return 2;
-                }
-                String testSnippet = "method".equals(testStyle)
-                        ? "recipe-method-test.template"
-                        : kind.testSnippet();
-                String testBody = applySubstitutions(
-                        Files.readString(snippets.resolve(testSnippet), StandardCharsets.UTF_8),
-                        repl);
-                Files.writeString(testFile, testBody, StandardCharsets.UTF_8);
-                System.out.println("wrote " + testFile);
+        private int writeTestFile(Path root, Path snippets, RecipeKind kind,
+                                  String pkg, Map<String, String> repl) throws IOException {
+            Path testDir = root.resolve("src/test/java").resolve(pkg.replace('.', '/'));
+            Files.createDirectories(testDir);
+            Path testFile = testDir.resolve(name + "Test.java");
+            if (Files.exists(testFile) && !force) {
+                System.err.println("refusing to overwrite " + testFile + " (pass --force).");
+                return 2;
             }
-
+            String testSnippet = "method".equals(testStyle)
+                    ? "recipe-method-test.template"
+                    : kind.testSnippet();
+            String testBody = applySubstitutions(
+                    Files.readString(snippets.resolve(testSnippet), StandardCharsets.UTF_8),
+                    repl);
+            Files.writeString(testFile, testBody, StandardCharsets.UTF_8);
+            System.out.println("wrote " + testFile);
             return 0;
         }
 
@@ -552,28 +568,6 @@ public class RecipeScaffold implements Runnable {
             return root.resolve("src/main/java")
                     .resolve(pkg.replace('.', '/'))
                     .resolve(name + ".java");
-        }
-
-
-        private static Map<String, String> readDropfile(Path file) throws IOException {
-            Map<String, String> m = new LinkedHashMap<>();
-            for (String line : Files.readAllLines(file, StandardCharsets.UTF_8)) {
-                String trimmed = line.strip();
-                if (trimmed.isEmpty() || trimmed.startsWith("#")) {
-                    continue;
-                }
-                int colon = trimmed.indexOf(':');
-                if (colon <= 0) {
-                    continue;
-                }
-                String key = trimmed.substring(0, colon).strip();
-                String val = trimmed.substring(colon + 1).strip();
-                if (val.startsWith("\"") && val.endsWith("\"") && val.length() >= 2) {
-                    val = val.substring(1, val.length() - 1);
-                }
-                m.put(key, val);
-            }
-            return m;
         }
 
 
@@ -750,6 +744,30 @@ public class RecipeScaffold implements Runnable {
                 return FileVisitResult.CONTINUE;
             }
         });
+    }
+
+    // Minimal YAML-ish reader for the dropfile. Only flat key:value pairs are
+    // supported — that's all init writes and all add-recipe needs. Comments
+    // (#) and blank lines are skipped; values may be optionally double-quoted.
+    static Map<String, String> readDropfile(Path file) throws IOException {
+        Map<String, String> m = new LinkedHashMap<>();
+        for (String line : Files.readAllLines(file, StandardCharsets.UTF_8)) {
+            String trimmed = line.strip();
+            if (trimmed.isEmpty() || trimmed.startsWith("#")) {
+                continue;
+            }
+            int colon = trimmed.indexOf(':');
+            if (colon <= 0) {
+                continue;
+            }
+            String key = trimmed.substring(0, colon).strip();
+            String val = trimmed.substring(colon + 1).strip();
+            if (val.startsWith("\"") && val.endsWith("\"") && val.length() >= 2) {
+                val = val.substring(1, val.length() - 1);
+            }
+            m.put(key, val);
+        }
+        return m;
     }
 
     static String applySubstitutions(String s, Map<String, String> repl) {
