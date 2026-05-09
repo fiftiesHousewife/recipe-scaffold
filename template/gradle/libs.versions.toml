@@ -11,6 +11,7 @@ jspecify = "1.0.0"
 lombok = "1.18.46"
 versions = "0.54.0"
 maven-publish = "0.36.0"
+spotbugs-plugin = "6.5.4"
 
 [libraries]
 # OpenRewrite
@@ -49,3 +50,4 @@ lombok = { module = "org.projectlombok:lombok", version.ref = "lombok" }
 openrewrite = { id = "org.openrewrite.rewrite", version.ref = "openrewrite" }
 versions = { id = "com.github.ben-manes.versions", version.ref = "versions" }
 maven-publish = { id = "com.vanniktech.maven.publish", version.ref = "maven-publish" }
+spotbugs = { id = "com.github.spotbugs", version.ref = "spotbugs-plugin" }

@@ -8,12 +8,17 @@
 // here so a future `recipescaffold upgrade-skills` style refresh has a single
 // place to land.
 
+import com.github.benmanes.gradle.versions.updates.DependencyUpdatesTask
+import com.github.spotbugs.snom.SpotBugsTask
+import groovy.json.JsonSlurper
+
 plugins {
     java
     jacoco
     id("org.openrewrite.rewrite")
     id("com.github.ben-manes.versions")
     id("com.vanniktech.maven.publish")
+    id("com.github.spotbugs")
 }
 
 // Programmatic catalog access: the typed `libs` accessor isn't generated for
@@ -242,4 +247,98 @@ listOf(
         "publishAllPublicationsToMavenCentralRepository",
 ).forEach { name ->
     tasks.matching { it.name == name }.configureEach { dependsOn("smokeTest") }
+}
+
+// ---- Coverage gate ---------------------------------------------------------
+// Defaults to a no-op (no rules → trivially passes) so a fresh scaffold with
+// zero recipes still builds. Set `recipeLibrary.minLineCoverage=0.7` (or any
+// 0.0–1.0 ratio) in gradle.properties to start enforcing line coverage.
+val minLineCoverage = providers.gradleProperty("recipeLibrary.minLineCoverage")
+        .map { it.toBigDecimal() }
+
+tasks.named<JacocoCoverageVerification>("jacocoTestCoverageVerification") {
+    dependsOn(tasks.named("test"))
+    if (minLineCoverage.isPresent) {
+        violationRules {
+            rule {
+                limit {
+                    counter = "LINE"
+                    value = "COVEREDRATIO"
+                    minimum = minLineCoverage.get()
+                }
+            }
+        }
+    }
+}
+tasks.named("check") { dependsOn(tasks.named("jacocoTestCoverageVerification")) }
+
+// ---- SpotBugs gate ---------------------------------------------------------
+// SpotBugs is wired into `check` automatically once the plugin is applied.
+// Default mode is non-blocking (ignoreFailures=true) so the gate surfaces
+// findings without breaking unrelated work; flip
+// `recipeLibrary.spotbugsStrict=true` in gradle.properties to make any bug
+// fail the build.
+val spotbugsStrict = providers.gradleProperty("recipeLibrary.spotbugsStrict")
+        .map { it.toBoolean() }
+        .orElse(false)
+
+spotbugs {
+    ignoreFailures.set(spotbugsStrict.map { !it })
+    effort.set(com.github.spotbugs.snom.Effort.DEFAULT)
+    reportLevel.set(com.github.spotbugs.snom.Confidence.MEDIUM)
+}
+
+tasks.withType<SpotBugsTask>().configureEach {
+    reports.create("html") { required.set(true) }
+    reports.create("xml") { required.set(true) }
+}
+
+// ---- Stale-dependency gate -------------------------------------------------
+// Configures `dependencyUpdates` to ignore prerelease candidates so we don't
+// thrash on alpha/beta/rc/milestone churn, then registers
+// `verifyDependencies` which depends on the report and fails when any stable
+// upgrade is available. `verifyDependencies` runs as part of `check` only
+// when `recipeLibrary.failOnStaleDependencies=true` is set; default is opt-in
+// so a fresh checkout doesn't fail the moment upstream cuts a release.
+tasks.withType<DependencyUpdatesTask>().configureEach {
+    rejectVersionIf {
+        val version = candidate.version.lowercase()
+        listOf("alpha", "beta", "-rc", ".rc", "-m", ".m", "milestone", "preview", "snapshot")
+                .any { version.contains(it) }
+    }
+    outputFormatter = "json"
+    outputDir = layout.buildDirectory.dir("dependencyUpdates").get().asFile.path
+    reportfileName = "report"
+}
+
+val verifyDependencies = tasks.register("verifyDependencies") {
+    description = "Fails if any dependency has a non-prerelease upgrade available."
+    group = "verification"
+    dependsOn(tasks.named("dependencyUpdates"))
+    doLast {
+        val report = layout.buildDirectory.file("dependencyUpdates/report.json").get().asFile
+        if (!report.exists()) {
+            throw GradleException("dependencyUpdates report missing at $report")
+        }
+        @Suppress("UNCHECKED_CAST")
+        val parsed = JsonSlurper().parse(report) as Map<String, Any?>
+        val outdated = parsed["outdated"] as Map<String, Any?>?
+        val deps = (outdated?.get("dependencies") as List<Map<String, Any?>>?).orEmpty()
+        if (deps.isNotEmpty()) {
+            val summary = deps.joinToString("\n  - ") { d ->
+                val available = d["available"] as Map<String, Any?>?
+                val target = available?.get("release")
+                        ?: available?.get("milestone")
+                        ?: available?.get("integration")
+                "${d["group"]}:${d["name"]} ${d["version"]} -> $target"
+            }
+            throw GradleException(
+                    "Stale dependencies (${deps.size}). Bump in libs.versions.toml " +
+                            "or run ./gradlew dependencyUpdates for details:\n  - $summary")
+        }
+    }
+}
+
+if (providers.gradleProperty("recipeLibrary.failOnStaleDependencies").map { it.toBoolean() }.orElse(false).get()) {
+    tasks.named("check") { dependsOn(verifyDependencies) }
 }
