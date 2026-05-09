@@ -18,10 +18,6 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-// Pure-function unit tests for the helpers extracted to top-level.
-// The end-to-end ScaffoldHarnessTest covers the I/O-heavy paths via
-// GradleRunner; this class focuses on the deterministic in-memory
-// helpers so we get fast feedback when their logic regresses.
 class RecipeScaffoldUnitTest {
 
     @ParameterizedTest
@@ -126,6 +122,33 @@ class RecipeScaffoldUnitTest {
                 .containsEntry(RecipeScaffold.MARKER_DIR, "io.github.acme");
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "build.gradle.kts", "settings.gradle.kts", "libs.versions.toml",
+            "Foo.java", "ci.yml", "README.md", "gradle.properties",
+            "ci-smoke.sh", ".gitignore", ".editorconfig"
+    })
+    void isTextFile_acceptsKnownExtensionsAndNames(String name) {
+        assertThat(RecipeScaffold.isTextFile(Path.of(name))).isTrue();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "gradle-wrapper.jar", "logo.png", "binary", "noext", "data.bin"
+    })
+    void isTextFile_rejectsBinariesAndExtensionlessFiles(String name) {
+        assertThat(RecipeScaffold.isTextFile(Path.of(name))).isFalse();
+    }
+
+    @Test
+    void isUnderSnippets_truthyOnlyWhenFirstSegmentIsSnippets() {
+        Path root = Path.of("/proj");
+        assertThat(RecipeScaffold.isUnderSnippets(root, root.resolve("snippets/recipe.template"))).isTrue();
+        assertThat(RecipeScaffold.isUnderSnippets(root, root.resolve("snippets"))).isTrue();
+        assertThat(RecipeScaffold.isUnderSnippets(root, root.resolve("src/main/java/Foo.java"))).isFalse();
+        assertThat(RecipeScaffold.isUnderSnippets(root, root.resolve("src/snippets/inner"))).isFalse();
+    }
+
     @Test
     void readDropfile_parsesQuotedAndUnquotedAndSkipsCommentsBlanks(@TempDir Path tmp) throws Exception {
         Path file = tmp.resolve(".recipescaffold.yml");
@@ -194,7 +217,6 @@ class RecipeScaffoldUnitTest {
     @Test
     void addRecipe_failsWhenDropfileMissingRootPackage(@TempDir Path tmp) throws Exception {
         Path project = newSyntheticProject(tmp);
-        // Overwrite the dropfile with one missing rootPackage.
         Files.writeString(project.resolve(".recipescaffold.yml"),
                 "group: io.example\nartifact: demo\n", StandardCharsets.UTF_8);
         ExecResult r = runScaffold(project, "add-recipe", "--name", "Foo");
@@ -282,8 +304,6 @@ class RecipeScaffoldUnitTest {
     }
 
     private static Path repoRoot() {
-        // Tests run with the repo as cwd via Gradle; fall back to walking upward
-        // for IDE runs where cwd may be the test source set.
         Path here = Path.of("").toAbsolutePath();
         for (Path p = here; p != null; p = p.getParent()) {
             if (Files.isDirectory(p.resolve("template/snippets"))) {
@@ -327,10 +347,6 @@ class RecipeScaffoldUnitTest {
     private record ExecResult(int exitCode, String stdout, String stderr) {}
 
     private static ExecResult runScaffold(Path cwd, String... args) {
-        // Drive the picocli command tree the same way main() does, with the
-        // working-dir-sensitive options pinned via --directory so we don't
-        // mutate process cwd. Subcommands print diagnostics directly to
-        // System.out/err, so capturing those is what matters.
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         ByteArrayOutputStream err = new ByteArrayOutputStream();
         String[] effective = needsDirectory(args) ? withDirectory(args, cwd) : args;
