@@ -133,6 +133,18 @@ src/
         └── MyRecipeMethodTest.java # see recipe-testing skill
 ```
 
+## Where the build gates live
+
+If this project was scaffolded from `recipescaffold`, the reusable shape of the build (toolchain, source sets, test/integrationTest/smokeTest tasks, jacoco, javadoc, sign-onlyIf, pre-publish smokeTest gate) lives in [`build-logic/src/main/kotlin/recipe-library.gradle.kts`](../../../build-logic/src/main/kotlin/recipe-library.gradle.kts). Edit gates there, not in the project's `build.gradle.kts` — that file should stay narrow on identity (group/version) and POM coordinates.
+
+Three opt-in quality gates flip on via `gradle.properties`:
+
+- `recipeLibrary.minLineCoverage=0.70` — JaCoCo line-coverage minimum.
+- `recipeLibrary.spotbugsStrict=true` — fail `check` on any SpotBugs finding.
+- `recipeLibrary.failOnStaleDependencies=true` — `verifyDependencies` blocks `check` on any non-prerelease upgrade available on Maven Central.
+
+All default off so a fresh project still builds. Tighten as the recipe library matures.
+
 ## Things that save time
 
 - Start from the official template — it wires the plugin, BOM, and self-test loop (`rewrite(project)`) correctly.

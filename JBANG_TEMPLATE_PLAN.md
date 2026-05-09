@@ -1,24 +1,27 @@
 # JBang template extraction plan + OpenRewrite audit
 
+> **Historical design doc.** Captured 2026-05-03 as the source plan for what became `recipescaffold`. Most of Part B has shipped; new work is tracked in [`BACKLOG.md`](./BACKLOG.md) and the user-facing surface in [`README.md`](./README.md). This file is preserved for the original Part A audit and to show what we set out to build vs. what we ended up with. Do not treat the inline statuses below as live state.
+
 **Provenance.** Generated 2026-05-03 by a Plan-type subagent (description: "OpenRewrite audit + JBang template plan") in session `7f36eae0-dc97-4699-a95f-27791031f4bd`. The agent transcript is the original source; this file is its persisted form. Status markers (`[ok]` / `[minor]` / `[missing]` / `[add]`) replaced the agent's emoji column to comply with the project's no-emojis-in-docs rule.
 
-## Status as of 2026-05-04
+## Status
 
-Part B11.2 has shipped — see the Part B status section below. Part A findings have moved since the audit was written. Treat the inline statuses below as snapshots from 2026-05-03; the table here is the live view.
-
-### Part B (template-extraction) progress
+All of Part B that was scoped here has shipped:
 
 | Step | Status |
 | --- | --- |
-| B11.1 — `template/` payload + `tests/ci-smoke.sh` | shipped |
+| B11.1 — `template/` payload + `tests/ci-smoke.sh` | shipped 2026-05-03 |
 | B11.2 — JBang `Init` subcommand at `jbang/RecipeScaffold.java` | shipped 2026-05-04 |
-| B11.2a — Repo-root CI (`.github/workflows/ci.yml`) running both bash and JBang flows | shipped 2026-05-04 |
-| B11.2b — Template additions: `LICENSE`, `AGENTS.md`, `.editorconfig`, `release.yml`, `wrapper-validation.yml`, `dependabot.yml` | shipped 2026-05-04 |
-| B11.3 — `add-recipe <name>` subcommand + `template/snippets/*.template` | queued |
-| B11.4 — `verify-gates` subcommand | queued |
-| B11.5+ — `bump-versions`, `release`, `--upgrade-skills` | parked |
+| B11.2a — Repo-root CI (`.github/workflows/ci.yml`) | shipped 2026-05-04 |
+| B11.2b — Template additions: `LICENSE`, `AGENTS.md`, `.editorconfig`, `release.yml`, `wrapper-validation.yml` | shipped 2026-05-04 |
+| B11.3 — `add-recipe` subcommand + `template/snippets/*.template` (java, scanning, yaml, refaster) | shipped 2026-05-04 |
+| B11.3.2 — `recipe-method-test.template` for `--test-style method` | shipped 2026-05-04 |
+| B11.4 — `verify-gates` subcommand | shipped 2026-05-04 |
+| B11.5 — `upgrade-skills` subcommand | shipped 2026-05-04 |
+| B12 (post-plan) — `build-logic` convention plugin + opt-in coverage/spotbugs/stale-deps gates | shipped 2026-05-09 |
+| B11.5+ — `bump-versions`, `release` | parked, see BACKLOG |
 
-See [`BACKLOG.md`](./BACKLOG.md) for the full Queued/Parked breakdown.
+See [`BACKLOG.md`](./BACKLOG.md) for the live Shipped / Queued / Parked split.
 
 ### Part A (upstream OpenRewrite findings)
 
