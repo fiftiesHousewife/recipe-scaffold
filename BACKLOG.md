@@ -9,6 +9,17 @@ The B-numbered items track [`JBANG_TEMPLATE_PLAN.md`](./JBANG_TEMPLATE_PLAN.md) 
 
 ## Shipped
 
+### 2026-05-09 (build-logic convention plugin + quality gates)
+
+- **`recipe-library` convention plugin** — extracted the reusable shape of the template's build (toolchain, integrationTest/smokeTest source sets and tasks, jacoco, javadoc, sign-onlyIf, pre-publish smoke gate, dep wiring) into `template/build-logic/src/main/kotlin/recipe-library.gradle.kts` as an included build. Scaffolded `template/build.gradle.kts` shrinks to project identity (group/version) plus maven-publish coordinates and POM. Java targets flow through `gradle.properties` keys `recipeLibrary.javaTargetMain` and `recipeLibrary.javaTargetTests` so the convention plugin stays project-agnostic. Catalog-driven plugin classpath in `build-logic/build.gradle.kts` uses programmatic catalog access (`VersionCatalogsExtension`) because the typed `libs` accessor is not generated for build-logic's own build script.
+- **Three opt-in quality gates** wired into the convention plugin, all default-off so a fresh scaffold still builds:
+  - `recipeLibrary.minLineCoverage=<ratio>` enables `jacocoTestCoverageVerification` with a line-coverage minimum.
+  - `recipeLibrary.spotbugsStrict=true` makes any SpotBugs finding fail `check`. Plugin always applied so reports show up; non-strict mode reports without blocking.
+  - `recipeLibrary.failOnStaleDependencies=true` wires `verifyDependencies` (parses ben-manes JSON report) into `check`. Prereleases (alpha/beta/rc/milestone/preview/snapshot) filtered out so the gate doesn't thrash.
+- **`ProjectDirectoryMixin`** — picocli `@Mixin` extracted from the duplicated `--directory` `@Option` on `add-recipe`, `verify-gates`, and `upgrade-skills`. Single source of truth for the help text and default behaviour.
+- **AddRecipe split** — `AddRecipe.call()` (90-line method) factored into `writeRecipeFile` and `writeTestFile` helpers. `readDropfile` promoted from private inner static to package-private top-level on `RecipeScaffold` so it is testable directly.
+- **Wider unit coverage** — `RecipeScaffoldUnitTest` grows to 38 cases: dropfile parsing edge cases (quoted/unquoted/comment/blank/malformed), AddRecipe validation gates (unknown type, lowercase name, bad test-style, method+yaml combo, missing rootPackage), end-to-end synthesis across all four kinds, overwrite refusal, `--no-tests`, missing snippets dir, and the no-project-found path on `verify-gates`/`upgrade-skills`.
+
 ### 2026-05-04 (upgrade-skills subcommand)
 
 - **`upgrade-skills`** — fourth JBang subcommand. Walks upward to find `.recipescaffold.yml` (or accepts `--directory`), locates upstream `template/.claude/skills/` (or accepts `--template-dir`), and replaces each skill subdir in the project's `.claude/skills/` with the upstream copy. Iterates only over upstream subdirs, so any user-added skill in the project is left alone. Supports `--dry-run` for preview. Tested locally: tampered SKILL.md overwritten cleanly; second run idempotent; error path (non-scaffolded directory) exits 2 with clean message. Refactor: `findTemplateDir`, `findProjectRoot`, and `deleteRecursively` were moved from per-subcommand private statics to top-level `RecipeScaffold` helpers, plus a new `copyDir` (cousin of Init's `copyTree` without the `.gradle`/`build`/`.idea` skip logic). Per-subcommand wrappers retained as thin delegates so the existing call sites are unchanged. Deviates from the BACKLOG-Parked verbiage of "`init --upgrade-skills` flag" — a separate subcommand is cleaner than gating most of init behind a flag.
@@ -62,24 +73,20 @@ The B-numbered items track [`JBANG_TEMPLATE_PLAN.md`](./JBANG_TEMPLATE_PLAN.md) 
 
 ## Queued for next release
 
-- **B11.3.2** — `recipe-method-test.template` — a `RewriteTest` skeleton that takes a one-line `before` / `after` pair instead of the multi-line `java(...)` block in the default test. For when the user wants a tighter assertion form for argument-level transforms.
-- `git init` + GitHub remote `recipescaffold`. Deferred until B11.3.x has settled the snippet layout fully.
+- (none)
 
 ## Active
 
-- (none — pick from Queued)
+- (none)
 
 ## Parked (re-open on trigger)
 
-- **Refactor `RecipeScaffold.java` to multi-file (`//SOURCES`) or to a `tooling/recipescaffold/` Maven/Gradle module.** Trigger: when B11.3 doubles the script's line count and `Init` and `AddRecipe` start sharing helpers. Today the script is appropriately sized for one subcommand.
-- **Split `Init.call()` into `TemplateLocator`, `Scaffolder`, `PlaceholderSubstitutor`, `GradleVerifier`.** Same trigger as the refactor above. Each becomes individually unit-testable. Clean Code skill `clean-code-functions` would flag the current ~100-line method.
-- **Unit tests for the helpers** (substitution correctness, residual detection, `__ROOT_PACKAGE__` rename, copyTree skip-list). Trigger: after the module extraction. CI black-box coverage (today) is enough for now.
-- **Extract constants** in `RecipeScaffold.java`: `MARKER_DIR = "__ROOT_PACKAGE__"`, `MARKER_PARENTS = List.of(...)`, `TEXT_EXTENSIONS`, `RESIDUAL_PATTERN`. Cosmetic; bundle into the refactor pass.
+- **Split `Init.call()` into `TemplateLocator`, `Scaffolder`, `PlaceholderSubstitutor`, `GradleVerifier`.** Trigger: when Init grows new responsibilities. The reusable build is now in `build-logic/`, so the lower half of `Init.call()` is mostly fan-out to top-level helpers (`copyTree`, `substituteIn`, `findResiduals`, `writeDropfile`); a five-class split would be ceremony today.
 - **`isTextFile()` improvements** — extension allowlist is brittle; `.editorconfig` is currently skipped because of no `.` extension. Either add to `TEXT_NAMES` or switch to content-based detection.
-- **`bump-versions` subcommand** — TOML-aware Maven Central checker, subset of Ben-Manes but one-step. Plan §B3 priority 4.
+- **`bump-versions` subcommand** — TOML-aware Maven Central checker, subset of Ben-Manes but one-step. Plan §B3 priority 4. Now partly redundant with the `failOnStaleDependencies` gate in the convention plugin; reopen if users want the bump applied automatically rather than just the diagnosis.
 - **`release` subcommand** — verify-gates → backlog confirm → version bump → tag → push. Plan §B3 priority 5; risky to automate, leave as documented workflow.
 - **Native image via GraalVM** for faster cold-start. Plan §B10. Only if startup becomes a user complaint.
-- **JBang catalog (`jbang-catalog.json`) entry** so users can `jbang recipescaffold@fiftiesHousewife init …` instead of pointing at the raw URL. Cheap once the GitHub remote exists.
+- **Convention plugin breakup into typed `Plugin<Project>` classes with unit tests.** Trigger: when `recipe-library.gradle.kts` either grows past ~400 lines or starts hosting non-trivial branching logic that would benefit from `ProjectBuilder.builder().build()` style tests. Today the script is mostly declarative Provider plumbing — splitting into five classes would add ~50 lines of plumbing per class without catching real bugs.
 
 ## See also
 

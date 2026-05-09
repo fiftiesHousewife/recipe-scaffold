@@ -27,6 +27,7 @@ import java.util.regex.Pattern;
 
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
+import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Option;
 
 @Command(
@@ -71,6 +72,16 @@ public class RecipeScaffold implements Runnable {
 
     public static void main(final String[] args) {
         System.exit(new CommandLine(new RecipeScaffold()).execute(args));
+    }
+
+    // Shared --directory option for subcommands that operate on an existing
+    // scaffolded project. add-recipe, verify-gates, and upgrade-skills all
+    // resolve a project root the same way; the mixin keeps the help text and
+    // default behaviour in one place.
+    static class ProjectDirectoryMixin {
+        @Option(names = {"-d", "--directory"},
+                description = "Project root. Default: walks upward from cwd looking for " + DROPFILE + ".")
+        Path projectDir;
     }
 
     @Command(
@@ -404,9 +415,8 @@ public class RecipeScaffold implements Runnable {
                         + DROPFILE + ".")
         String packageOverride;
 
-        @Option(names = {"-d", "--directory"},
-                description = "Project root. Default: walks upward from cwd looking for " + DROPFILE + ".")
-        Path projectDir;
+        @Mixin
+        ProjectDirectoryMixin projectDirectory = new ProjectDirectoryMixin();
 
         @Option(names = "--no-tests",
                 description = "Skip writing the test file. Default: write the test.")
@@ -476,7 +486,7 @@ public class RecipeScaffold implements Runnable {
                 return 2;
             }
 
-            Path root = resolveProjectRoot(projectDir);
+            Path root = resolveProjectRoot(projectDirectory.projectDir);
             if (root == null) {
                 return 2;
             }
@@ -580,13 +590,12 @@ public class RecipeScaffold implements Runnable {
     )
     static class VerifyGates implements Callable<Integer> {
 
-        @Option(names = {"-d", "--directory"},
-                description = "Project root. Default: walks upward from cwd looking for " + DROPFILE + ".")
-        Path projectDir;
+        @Mixin
+        ProjectDirectoryMixin projectDirectory = new ProjectDirectoryMixin();
 
         @Override
         public Integer call() throws Exception {
-            Path root = resolveProjectRoot(projectDir);
+            Path root = resolveProjectRoot(projectDirectory.projectDir);
             if (root == null) {
                 return 2;
             }
@@ -612,9 +621,8 @@ public class RecipeScaffold implements Runnable {
     )
     static class UpgradeSkills implements Callable<Integer> {
 
-        @Option(names = {"-d", "--directory"},
-                description = "Project root. Default: walks upward from cwd looking for " + DROPFILE + ".")
-        Path projectDir;
+        @Mixin
+        ProjectDirectoryMixin projectDirectory = new ProjectDirectoryMixin();
 
         @Option(names = "--template-dir",
                 description = "Override upstream template source. Default: walks upward from cwd looking for template/build.gradle.kts.")
@@ -626,7 +634,7 @@ public class RecipeScaffold implements Runnable {
 
         @Override
         public Integer call() throws Exception {
-            Path root = resolveProjectRoot(projectDir);
+            Path root = resolveProjectRoot(projectDirectory.projectDir);
             if (root == null) {
                 return 2;
             }

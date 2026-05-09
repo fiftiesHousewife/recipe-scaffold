@@ -203,6 +203,18 @@ Once you're inside `<your-project>` and have run `init`, these are the commands 
 | `./gradlew wrapper --gradle-version=9.4.1` | Bump the Gradle wrapper. |
 | `./gradlew wrapper --gradle-version=9.5.0 --distribution-type=bin` | Same, with `-bin` (smaller download than the default `-all`). |
 
+### Quality gates
+
+The reusable build lives in `build-logic/` as the `recipe-library` convention plugin. Three opt-in gates ship default-off; flip them on in `gradle.properties` as the recipe library matures:
+
+| `gradle.properties` key | Effect |
+| --- | --- |
+| `recipeLibrary.minLineCoverage=0.70` | Enforces minimum line-coverage ratio via `jacocoTestCoverageVerification` (wired into `check`). Unset = no rule, trivially passes. |
+| `recipeLibrary.spotbugsStrict=true` | Makes any SpotBugs finding fail `check`. Default false: findings are reported under `build/reports/spotbugs/` but non-blocking. |
+| `recipeLibrary.failOnStaleDependencies=true` | Wires `verifyDependencies` into `check`; any non-prerelease upgrade available on Maven Central blocks the build. Prereleases (alpha/beta/rc/milestone/preview/snapshot) are filtered out. |
+| `recipeLibrary.javaTargetMain=17` | `release` for `compileJava`. |
+| `recipeLibrary.javaTargetTests=25` | `release` for `compileTestJava` and language version for the test/integrationTest/smokeTest toolchain. |
+
 ## What you get
 
 - Gradle build with [`vanniktech/gradle-maven-publish-plugin`](https://vanniktech.github.io/gradle-maven-publish-plugin/) wired to Maven Central, the [OpenRewrite Gradle plugin](https://docs.openrewrite.org/reference/gradle-plugin-configuration) for self-tests, the [Ben-Manes versions plugin](https://github.com/ben-manes/gradle-versions-plugin), and [JaCoCo](https://www.jacoco.org/jacoco/).
