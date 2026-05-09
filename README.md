@@ -101,6 +101,13 @@ The result is a normal [Gradle](https://gradle.org) project rooted at `--directo
 
 The CLI exposes four subcommands; `--help` on any of them lists every option. Examples below use the JBang catalog form; substitute `jbang jbang/RecipeScaffold.java` or `java -jar build/libs/recipescaffold.jar` if you prefer.
 
+| Subcommand | One-liner | Typical use |
+| --- | --- | --- |
+| [`init`](#init--scaffold-a-new-project) | Scaffold a fresh recipe project from `template/`. | First-time bootstrap; once per project. |
+| [`add-recipe`](#add-recipe--drop-a-new-recipe-in) | Drop a new recipe (+ test) into an existing scaffolded project. | Every new recipe; works from any subdir. |
+| [`verify-gates`](#verify-gates--run-the-full-gate-chain) | Run `./gradlew check integrationTest smokeTest`. | Pre-push / pre-publish sanity check. |
+| [`upgrade-skills`](#upgrade-skills--refresh-the-bundled-agent-skills) | Refresh the project's `.claude/skills/` from the upstream copy. | After `recipescaffold` itself releases. |
+
 ### `init` — scaffold a new project
 
 The Quickstart above. **Required:** `--group`, `--artifact`, `--package`, `--recipe-name`, `--recipe-description`, `--github-org`, `--github-repo`, `--author-id`, `--author-name`, `--author-email`. **Optional:** `--initial-version` (default `0.1`), `--java-target-main` (default `17`), `--java-target-tests` (default `25`), `--rewrite-plugin-version` (default `7.32.1`), `--directory` (default `./<artifact>`), `--template-dir` (default: walks upward), `--force`, `--verify`. Writes `.recipescaffold.yml` at the output root for subsequent commands.
@@ -215,17 +222,121 @@ The reusable build lives in `build-logic/` as the `recipe-library` convention pl
 | `recipeLibrary.javaTargetMain=17` | `release` for `compileJava`. |
 | `recipeLibrary.javaTargetTests=25` | `release` for `compileTestJava` and language version for the test/integrationTest/smokeTest toolchain. |
 
+## Examples
+
+End-to-end walk-throughs of what an `init` → `add-recipe` → `verify-gates` cycle looks like.
+
+### 1. Bootstrap a recipe library and verify it builds
+
+```bash
+# from anywhere
+jbang recipescaffold@fiftiesHousewife/recipescaffold init \
+  --group=io.github.acme \
+  --artifact=acme-rewrite-recipes \
+  --package=io.github.acme \
+  --recipe-name="Acme Recipes" \
+  --recipe-description="OpenRewrite recipes for the Acme codebase" \
+  --github-org=acme \
+  --github-repo=acme-rewrite-recipes \
+  --author-id=acmebot \
+  --author-name="Acme Bot" \
+  --author-email=bot@acme.example \
+  --directory=./acme-rewrite-recipes \
+  --verify
+```
+
+Output (truncated):
+
+```
+scaffolding /…/acme-rewrite-recipes from /…/template
+running ./gradlew check smokeTest in /…/acme-rewrite-recipes
+BUILD SUCCESSFUL
+OK: gates passed at /…/acme-rewrite-recipes
+```
+
+### 2. Add a Java recipe, fill in the visitor, run tests
+
+```bash
+cd acme-rewrite-recipes
+jbang recipescaffold@fiftiesHousewife/recipescaffold add-recipe \
+  --name RemoveStaleSuppression \
+  --display-name "Remove @SuppressWarnings noise" \
+  --description "Remove suppressions that no longer match a real warning."
+# wrote .../recipes/RemoveStaleSuppression.java
+# wrote .../recipes/RemoveStaleSuppressionTest.java
+$EDITOR src/main/java/io/github/acme/recipes/RemoveStaleSuppression.java
+./gradlew test --tests RemoveStaleSuppressionTest
+```
+
+### 3. One-off vs. composition vs. Refaster
+
+| Goal | Command |
+| --- | --- |
+| Idiomatic visitor recipe (`JavaIsoVisitor`). | `add-recipe --name RemoveStaleSuppression` |
+| Two-pass scan (collect, then transform). | `add-recipe --name UseRecordsForTuples --type scanning` |
+| YAML composition that runs other recipes. | `add-recipe --name UpgradeSpringBoot --type yaml` |
+| Refaster `@BeforeTemplate` / `@AfterTemplate` pair. | `add-recipe --name MathPow --type refaster` |
+| Tighter one-line before/after assertion. | `add-recipe --name RenameField --type java --test-style method` |
+| Recipe only — no test file. | `add-recipe --name MyRecipe --no-tests` |
+| Force overwrite an existing recipe. | `add-recipe --name MyRecipe --force` |
+
+### 4. Tighten the gates as the library matures
+
+In `gradle.properties`, flip the opt-in flags as confidence grows:
+
+```properties
+# Day 1 — empty: all gates non-blocking.
+# Once a few recipes have tests:
+recipeLibrary.minLineCoverage=0.50
+
+# Once SpotBugs findings are clean:
+recipeLibrary.spotbugsStrict=true
+
+# When you want CI to nag on every dep release:
+recipeLibrary.failOnStaleDependencies=true
+```
+
+`./gradlew check` now enforces all three. Roll back any single flag if it gets noisy.
+
+### 5. Pre-publish dry run, then release
+
+```bash
+jbang recipescaffold@fiftiesHousewife/recipescaffold verify-gates
+# ... ./gradlew check integrationTest smokeTest passes ...
+git tag -a v0.1.0 -m "first release"
+git push --tags
+# triggers .github/workflows/release.yml — publishes to Maven Central
+```
+
+`publishAndReleaseToMavenCentral` structurally `dependsOn("smokeTest")`, so even a manual publish path can't skip the gate.
+
+### 6. Refresh the bundled agent skills after upstream changes
+
+```bash
+jbang recipescaffold@fiftiesHousewife/recipescaffold upgrade-skills --dry-run
+# review the diff
+jbang recipescaffold@fiftiesHousewife/recipescaffold upgrade-skills
+git diff .claude/skills/
+git commit -am "Refresh agent skills from upstream"
+```
+
+`upgrade-skills` only touches subdirs that exist in the upstream copy — your own custom skills are left alone.
+
 ## What you get
 
-- Gradle build with [`vanniktech/gradle-maven-publish-plugin`](https://vanniktech.github.io/gradle-maven-publish-plugin/) wired to Maven Central, the [OpenRewrite Gradle plugin](https://docs.openrewrite.org/reference/gradle-plugin-configuration) for self-tests, the [Ben-Manes versions plugin](https://github.com/ben-manes/gradle-versions-plugin), and [JaCoCo](https://www.jacoco.org/jacoco/).
-- Refaster recipe support pre-wired: [`org.openrewrite:rewrite-templating`](https://github.com/openrewrite/rewrite-templating) annotation processor + [`com.google.errorprone:error_prone_core`](https://errorprone.info) (with the canonical `auto-service-annotations` and `dataflow-errorprone` excludes); `compileJava` adds `-Arewrite.javaParserClasspathFrom=resources`.
-- Three source sets: `test` ([JUnit 5](https://junit.org/junit5/) + [`RewriteTest`](https://docs.openrewrite.org/authoring-recipes/recipe-testing) integration), `integrationTest` ([Gradle Tooling API `withToolingApi()`](https://docs.gradle.org/current/userguide/third_party_integration.html#embedding) end-to-end), `smokeTest` (scaffolds `/tmp` Gradle projects per matrix cell).
-- `publishAndReleaseToMavenCentral` structurally `dependsOn("smokeTest")` — there's no path to Central that skips the gate.
-- [Apache 2.0 LICENSE](https://www.apache.org/licenses/LICENSE-2.0), `.editorconfig`, three GitHub Actions workflows (`gradle.yml` for CI, `wrapper-validation.yml` for wrapper-jar checksum, `release.yml` for tag-triggered Maven Central publish).
-- `AGENTS.md` (vendor-neutral agent guidance) + `CLAUDE.md` stub forwarding to it. Four `.claude/skills/` shipped: `new-gradle-project`, `new-recipe`, `recipe-testing`, `smoke-test`.
-- One `ExampleRecipe` no-op so a freshly scaffolded project's `./gradlew check smokeTest` is green from the first commit.
-- `snippets/` — copies of the `add-recipe` source-of-truth fragments. Carried into the scaffolded project so `add-recipe` resolves them locally; the init-time substitutor explicitly skips this directory so the snippet-time `{{...}}` markers survive.
-- Other deps wired by default: [Lombok](https://projectlombok.org), [JSpecify](https://jspecify.dev), [AssertJ](https://assertj.github.io/doc/).
+| Aspect | What ships |
+| --- | --- |
+| **Build logic** | `build-logic/` [included build](https://docs.gradle.org/current/userguide/composite_builds.html) hosts the [`recipe-library` convention plugin](./template/build-logic/src/main/kotlin/recipe-library.gradle.kts) — toolchain, test source sets, jacoco, javadoc, sign-onlyIf, pre-publish smoke gate, all reusable shape lives there. The project's `build.gradle.kts` shrinks to identity (group/version) plus maven-publish coordinates and POM. |
+| **Plugins** | [vanniktech/gradle-maven-publish-plugin](https://vanniktech.github.io/gradle-maven-publish-plugin/), [OpenRewrite Gradle plugin](https://docs.openrewrite.org/reference/gradle-plugin-configuration), [Ben-Manes versions plugin](https://github.com/ben-manes/gradle-versions-plugin), [SpotBugs Gradle plugin](https://github.com/spotbugs/spotbugs-gradle-plugin), [JaCoCo](https://www.jacoco.org/jacoco/). |
+| **Refaster wiring** | [`org.openrewrite:rewrite-templating`](https://github.com/openrewrite/rewrite-templating) annotation processor + [Errorprone Refaster](https://errorprone.info/docs/refaster), with canonical `auto-service-annotations` and `dataflow-errorprone` excludes; `compileJava` adds `-Arewrite.javaParserClasspathFrom=resources`. |
+| **Source sets** | `test` ([JUnit 5](https://junit.org/junit5/) + [`RewriteTest`](https://docs.openrewrite.org/authoring-recipes/recipe-testing)), `integrationTest` ([Gradle Tooling API `withToolingApi()`](https://docs.gradle.org/current/userguide/third_party_integration.html#embedding)), `smokeTest` (scaffolds throwaway `/tmp` Gradle projects per matrix cell). |
+| **Publishing gate** | `publishAndReleaseToMavenCentral` structurally `dependsOn("smokeTest")` — there is no path to Central that skips the gate. |
+| **Quality gates** | [Three opt-in gradle.properties keys](#quality-gates) — coverage minimum, SpotBugs strictness, stale-dependency block. All default off so a fresh scaffold still builds. |
+| **Files** | [Apache 2.0 LICENSE](https://www.apache.org/licenses/LICENSE-2.0), `.editorconfig`, three GitHub Actions workflows (`gradle.yml`, `wrapper-validation.yml`, `release.yml`). |
+| **Agent setup** | `AGENTS.md` (vendor-neutral) + `CLAUDE.md` stub. Four `.claude/skills/`: `new-gradle-project`, `new-recipe`, `recipe-testing`, `smoke-test`. |
+| **Sample code** | One `ExampleRecipe` no-op so a freshly scaffolded project's `./gradlew check smokeTest` is green from the first commit. |
+| **Snippets** | `snippets/` carries the `add-recipe` source-of-truth fragments into the scaffolded project; the init-time substitutor skips this directory so snippet-time `{{...}}` markers survive. |
+| **Other deps** | [Lombok](https://projectlombok.org), [JSpecify](https://jspecify.dev), [AssertJ](https://assertj.github.io/doc/). |
 
 ## Placeholders
 
@@ -337,12 +448,75 @@ jbang jbang/RecipeScaffold.java init … --verify
 ├── tests/ci-smoke.sh             # bash scaffold-and-build verifier (kept as v0 fallback)
 ├── template/                     # WHAT GETS SCAFFOLDED into the user's new project
 │   ├── AGENTS.md, CLAUDE.md, LICENSE, .editorconfig
+│   ├── build.gradle.kts          # project identity (group/version) + maven-publish coords/POM
+│   ├── settings.gradle.kts       # pluginManagement.includeBuild("build-logic")
+│   ├── gradle.properties         # toolchain + opt-in quality-gate flags
+│   ├── build-logic/              # included build — `recipe-library` convention plugin
+│   │   └── src/main/kotlin/recipe-library.gradle.kts  # the reusable build shape
 │   ├── .github/workflows/        # gradle.yml, release.yml, wrapper-validation.yml
 │   ├── snippets/                 # source-of-truth recipe-skeleton fragments (read by add-recipe)
 │   ├── src/                      # main + test + integrationTest + smokeTest
 │   └── .claude/skills/           # the four recipe-authoring skills shipped with the scaffold
 └── .github/workflows/ci.yml      # bash-scaffold + jbang-scaffold + harness + actionlint
 ```
+
+## References
+
+### OpenRewrite
+
+| Resource | Why you'd open it |
+| --- | --- |
+| [OpenRewrite docs](https://docs.openrewrite.org) | Concepts, recipe authoring, visitor reference. |
+| [Recipe testing guide](https://docs.openrewrite.org/authoring-recipes/recipe-testing) | `RewriteTest` API, `TypeValidation`, multi-source tests. |
+| [`moderneinc/rewrite-recipe-starter`](https://github.com/moderneinc/rewrite-recipe-starter) | Upstream reference template — what this scaffolder distills. |
+| [`openrewrite/rewrite-templating`](https://github.com/openrewrite/rewrite-templating) | Refaster annotation processor used by `--type refaster`. |
+| [`openrewrite/rewrite-spring`](https://github.com/openrewrite/rewrite-spring) | Real-world recipe library to read for patterns. |
+| [`openrewrite/rewrite-static-analysis`](https://github.com/openrewrite/rewrite-static-analysis) | Same — well-tested static-analysis recipes. |
+
+### JBang
+
+| Resource | Why you'd open it |
+| --- | --- |
+| [JBang documentation](https://www.jbang.dev/documentation/jbang/latest/usage.html) | Directives (`//DEPS`, `//JAVA`, `//SOURCES`, `//FILES`, `//NATIVE`), catalog format, trust model. |
+| [`jbang-catalog.json` reference](https://www.jbang.dev/documentation/jbang/latest/javasources.html#jbang-catalog) | Schema for the catalog file we ship. |
+| [`maxandersen/rewrite-jbang`](https://github.com/maxandersen/rewrite-jbang) | A JBang-distributed *runner* for OpenRewrite recipes (different scope: they run, we scaffold). |
+
+### Picocli
+
+| Resource | Why you'd open it |
+| --- | --- |
+| [picocli user manual](https://picocli.info) | `@Command`, `@Option`, `@Mixin`, subcommand wiring. |
+| [Picocli on GitHub](https://github.com/remkop/picocli) | Source, releases. |
+
+### Gradle
+
+| Resource | Why you'd open it |
+| --- | --- |
+| [Composite builds (`includeBuild`)](https://docs.gradle.org/current/userguide/composite_builds.html) | The `build-logic/` pattern this template uses. |
+| [Convention plugins](https://docs.gradle.org/current/userguide/sharing_build_logic_between_subprojects.html) | Theory behind `recipe-library.gradle.kts`. |
+| [Version catalogs](https://docs.gradle.org/current/userguide/platforms.html) | TOML-driven dependency versions; how `libs.versions.toml` works. |
+| [TestKit](https://docs.gradle.org/current/userguide/test_kit.html) | The harness's E2E mechanism. |
+| [Tooling API embedding](https://docs.gradle.org/current/userguide/third_party_integration.html#embedding) | The `integrationTest` source set's `withToolingApi()` plumbing. |
+
+### Build & publishing tooling
+
+| Resource | Role here |
+| --- | --- |
+| [vanniktech maven-publish-plugin](https://vanniktech.github.io/gradle-maven-publish-plugin/) | One-stop Maven Central publishing wired into `recipe-library`. |
+| [Maven Central Portal](https://central.sonatype.com) | Where releases land. |
+| [Ben-Manes versions plugin](https://github.com/ben-manes/gradle-versions-plugin) | Backs the `failOnStaleDependencies` gate. |
+| [SpotBugs Gradle plugin](https://github.com/spotbugs/spotbugs-gradle-plugin) | Backs the `spotbugsStrict` gate. |
+| [JaCoCo](https://www.jacoco.org/jacoco/) | Backs the `minLineCoverage` gate. |
+| [actionlint](https://github.com/rhysd/actionlint) | Lints `.github/workflows/*.yml` in CI. |
+
+### This project
+
+| Document | What's in it |
+| --- | --- |
+| [`AGENTS.md`](./AGENTS.md) | Canonical, vendor-neutral project guidance for any agent. |
+| [`BACKLOG.md`](./BACKLOG.md) | Shipped / queued / parked work. |
+| [`JBANG_TEMPLATE_PLAN.md`](./JBANG_TEMPLATE_PLAN.md) | Original design plan (Part A: upstream findings; Part B: scaffolder design). |
+| [`template/build-logic/src/main/kotlin/recipe-library.gradle.kts`](./template/build-logic/src/main/kotlin/recipe-library.gradle.kts) | The convention plugin — read first when changing the scaffolded build. |
 
 ## License
 
