@@ -1,3 +1,5 @@
+import java.net.URI
+
 plugins {
     java
     application
@@ -99,6 +101,49 @@ val verifyWrapperParity by tasks.registering {
     }
 }
 tasks.named("check") { dependsOn(verifyWrapperParity) }
+
+// Corporate-friendly path to JBang itself: download the official release zip
+// from GitHub into build/jbang/jbang-<version>/. No package manager, no brew,
+// no curl-pipe-bash — just `./gradlew downloadJbang` and run the resulting
+// bin/jbang script. The version is pinned in gradle/libs.versions.toml.
+val jbangVersion = libs.versions.jbang.get()
+val jbangBuildDir = layout.buildDirectory.dir("jbang")
+
+val downloadJbangArchive by tasks.registering {
+    description = "Download the pinned JBang release zip from GitHub."
+    group = "tooling"
+    val outputArchive = jbangBuildDir.map { it.file("jbang-$jbangVersion.zip") }
+    outputs.file(outputArchive)
+    doLast {
+        val target = outputArchive.get().asFile
+        target.parentFile.mkdirs()
+        val url = "https://github.com/jbangdev/jbang/releases/download/v$jbangVersion/jbang-$jbangVersion.zip"
+        URI(url).toURL().openStream().use { input ->
+            target.outputStream().use { output -> input.copyTo(output) }
+        }
+    }
+}
+
+val downloadJbang by tasks.registering(Copy::class) {
+    description = "Install JBang under build/jbang/jbang-<version>/. Run bin/jbang from there."
+    group = "tooling"
+    dependsOn(downloadJbangArchive)
+    val archive = downloadJbangArchive.map { it.outputs.files.singleFile }
+    from(zipTree(archive))
+    into(jbangBuildDir)
+    doLast {
+        val homeDir = jbangBuildDir.get().dir("jbang-$jbangVersion").asFile
+        val script = if (System.getProperty("os.name").lowercase().startsWith("windows"))
+                "bin\\jbang.cmd" else "bin/jbang"
+        val launcher = homeDir.toPath().resolve(script).toFile()
+        if (launcher.exists() && !launcher.canExecute()) {
+            launcher.setExecutable(true, false)
+        }
+        logger.lifecycle("JBang $jbangVersion installed at ${homeDir.absolutePath}")
+        logger.lifecycle("Run it with: ${homeDir.absolutePath}/$script <script-or-alias>")
+        logger.lifecycle("Or add ${homeDir.absolutePath}/bin to PATH for a permanent shortcut.")
+    }
+}
 
 // Fat jar so non-JBang users can `java -jar build/libs/recipescaffold.jar init …`.
 // Bundles picocli (the only runtime dep) so the jar is self-contained.

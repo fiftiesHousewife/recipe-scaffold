@@ -3,6 +3,7 @@ picocli = "4.7.7"
 junit = "6.1.0-RC1"
 assertj = "4.0.0-M1"
 versions = "0.54.0"
+jbang = "0.138.0"
 
 [libraries]
 picocli = { module = "info.picocli:picocli", version.ref = "picocli" }

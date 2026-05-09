@@ -27,9 +27,12 @@ brew install jbang                                     # macOS
 sdk install jbang                                      # via SDKMAN!
 choco install jbang                                    # Windows
 curl -Ls https://sh.jbang.dev | bash -s - app setup    # POSIX universal
+./gradlew downloadJbang                                # corporate / no package manager
 ```
 
 The `app setup` form drops `jbang` into `~/.jbang/bin/`, prepends it to your `PATH` in shell-rc files, and works without sudo.
+
+The `./gradlew downloadJbang` path is for environments that block `brew`, `curl | bash`, or other package managers but already have the JDK + Gradle wrapper on disk. The task downloads the official JBang release zip from [GitHub](https://github.com/jbangdev/jbang/releases) (pinned in `gradle/libs.versions.toml`) and extracts it under `build/jbang/jbang-<version>/`. Use the launcher as `build/jbang/jbang-<version>/bin/jbang …`, or add that `bin/` to your `PATH` for a permanent shortcut. HTTPS provides transport integrity; if you need to verify the archive against the upstream SHA-256, fetch `<asset>.sha256` from the same release page and compare.
 
 ### What JBang gives you
 
