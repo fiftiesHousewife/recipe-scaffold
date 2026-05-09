@@ -7,8 +7,8 @@
 package recipescaffold;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.DirectoryStream;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -17,13 +17,17 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
@@ -70,7 +74,11 @@ public class RecipeScaffold implements Runnable {
     static class ProjectDirectoryMixin {
         @Option(names = {"-d", "--directory"},
                 description = "Project root. Default: walks upward from cwd looking for " + DROPFILE + ".")
-        Path projectDir;
+        private Path projectDir;
+
+        Path projectDir() {
+            return projectDir;
+        }
     }
 
     @Command(
@@ -82,129 +90,143 @@ public class RecipeScaffold implements Runnable {
 
         @Option(names = "--group", required = true,
                 description = "Maven group, e.g. io.github.acme.")
-        String group;
+        private String group;
 
         @Option(names = "--artifact", required = true,
                 description = "Maven artifact id, e.g. acme-rewrite-recipes.")
-        String artifact;
+        private String artifact;
 
         @Option(names = {"--package", "--root-package"}, required = true,
                 description = "Java root package, e.g. io.github.acme. Recipes live at <package>.recipes.")
-        String rootPackage;
+        private String rootPackage;
 
         @Option(names = "--initial-version", defaultValue = "0.1",
                 description = "First version of the scaffolded project. Default: ${DEFAULT-VALUE}.")
-        String initialVersion;
+        private String initialVersion;
 
         @Option(names = "--recipe-name", required = true,
                 description = "POM <name>, e.g. \"Acme Recipes\".")
-        String recipeName;
+        private String recipeName;
 
         @Option(names = "--recipe-description", required = true,
                 description = "POM <description>.")
-        String recipeDescription;
+        private String recipeDescription;
 
         @Option(names = "--github-org", required = true,
                 description = "GitHub org/user for SCM URLs.")
-        String githubOrg;
+        private String githubOrg;
 
         @Option(names = "--github-repo", required = true,
                 description = "GitHub repo name for SCM URLs.")
-        String githubRepo;
+        private String githubRepo;
 
         @Option(names = "--author-id", required = true,
                 description = "POM developer id.")
-        String authorId;
+        private String authorId;
 
         @Option(names = "--author-name", required = true,
                 description = "POM developer name.")
-        String authorName;
+        private String authorName;
 
         @Option(names = "--author-email", required = true,
                 description = "POM developer email.")
-        String authorEmail;
+        private String authorEmail;
 
         @Option(names = "--java-target-main", defaultValue = "17",
                 description = "release for compileJava. Default: ${DEFAULT-VALUE}.")
-        String javaTargetMain;
+        private String javaTargetMain;
 
         @Option(names = "--java-target-tests", defaultValue = "25",
                 description = "release for compileTestJava and toolchain. Default: ${DEFAULT-VALUE}.")
-        String javaTargetTests;
+        private String javaTargetTests;
 
         @Option(names = "--rewrite-plugin-version", defaultValue = "7.32.1",
                 description = "Used in docs snippets. Default: ${DEFAULT-VALUE}.")
-        String rewritePluginVersion;
+        private String rewritePluginVersion;
 
         @Option(names = {"-d", "--directory"},
                 description = "Output directory. Default: ./<artifact>.")
-        Path outputDir;
+        private Path outputDir;
 
         @Option(names = "--template-dir",
                 description = "Template source dir. Default: walks upward from cwd looking for template/build.gradle.kts.")
-        Path templateDir;
+        private Path templateDir;
 
         @Option(names = "--force",
                 description = "Overwrite an existing output directory.")
-        boolean force;
+        private boolean force;
 
         @Option(names = "--verify",
                 description = "Run ./gradlew check smokeTest after scaffolding.")
-        boolean verify;
+        private boolean verify;
 
         @Override
         public Integer call() throws Exception {
-            Path src = templateDir != null
-                    ? templateDir.toAbsolutePath().normalize()
-                    : findTemplateDir();
-            if (!Files.isDirectory(src) || !Files.isRegularFile(src.resolve("build.gradle.kts"))) {
-                System.err.println("not a template dir (no build.gradle.kts): " + src);
-                System.err.println("pass --template-dir explicitly or run from a checkout of recipescaffold");
+            Path templateRoot = resolveTemplateRoot();
+            if (templateRoot == null) {
+                return 2;
+            }
+            Path outputRoot = resolveOutputRoot();
+            if (outputRoot == null) {
                 return 2;
             }
 
-            Path out = outputDir != null
-                    ? outputDir.toAbsolutePath().normalize()
-                    : Paths.get(artifact).toAbsolutePath().normalize();
-            if (Files.exists(out)) {
-                if (!force) {
-                    System.err.println("output already exists (pass --force to overwrite): " + out);
-                    return 2;
-                }
-                System.out.println("removing existing " + out);
-                deleteRecursively(out);
-            }
+            System.out.println("scaffolding " + outputRoot + " from " + templateRoot);
+            copyTree(templateRoot, outputRoot);
+            renamePackageMarkers(outputRoot, rootPackage.replace('.', '/'));
+            substituteIn(outputRoot, buildReplacements());
 
-            System.out.println("scaffolding " + out + " from " + src);
-            copyTree(src, out);
-
-            renamePackageMarkers(out, rootPackage.replace('.', '/'));
-
-            substituteIn(out, buildReplacements());
-
-            List<String> residuals = findResiduals(out);
+            List<String> residuals = findResiduals(outputRoot);
             if (!residuals.isEmpty()) {
                 System.err.println("FAIL: unsubstituted placeholder(s):");
                 residuals.forEach(System.err::println);
                 return 3;
             }
 
-            writeDropfile(out);
+            writeDropfile(outputRoot);
+            System.out.println("OK: scaffold complete at " + outputRoot);
 
-            System.out.println("OK: scaffold complete at " + out);
-
-            if (verify) {
-                System.out.println("running ./gradlew check smokeTest in " + out);
-                int rc = runGradle(out, List.of("check", "smokeTest"));
-                if (rc != 0) {
-                    System.err.println("FAIL: ./gradlew check smokeTest exited " + rc);
-                    return rc;
-                }
-                System.out.println("OK: gates passed at " + out);
-            }
-            return 0;
+            return verify ? runVerify(outputRoot) : 0;
         }
 
+        private Path resolveTemplateRoot() {
+            Path src = templateDir != null
+                    ? templateDir.toAbsolutePath().normalize()
+                    : findTemplateDir();
+            if (Files.isDirectory(src) && Files.isRegularFile(src.resolve("build.gradle.kts"))) {
+                return src;
+            }
+            System.err.println("not a template dir (no build.gradle.kts): " + src);
+            System.err.println("pass --template-dir explicitly or run from a checkout of recipescaffold");
+            return null;
+        }
+
+        private Path resolveOutputRoot() throws IOException {
+            Path out = outputDir != null
+                    ? outputDir.toAbsolutePath().normalize()
+                    : Paths.get(artifact).toAbsolutePath().normalize();
+            if (!Files.exists(out)) {
+                return out;
+            }
+            if (!force) {
+                System.err.println("output already exists (pass --force to overwrite): " + out);
+                return null;
+            }
+            System.out.println("removing existing " + out);
+            deleteRecursively(out);
+            return out;
+        }
+
+        private int runVerify(Path outputRoot) throws IOException, InterruptedException {
+            System.out.println("running ./gradlew check smokeTest in " + outputRoot);
+            int exitCode = runGradle(outputRoot, List.of("check", "smokeTest"));
+            if (exitCode != 0) {
+                System.err.println("FAIL: ./gradlew check smokeTest exited " + exitCode);
+                return exitCode;
+            }
+            System.out.println("OK: gates passed at " + outputRoot);
+            return 0;
+        }
 
         Map<String, String> buildReplacements() {
             Map<String, String> repl = new LinkedHashMap<>();
@@ -252,43 +274,43 @@ public class RecipeScaffold implements Runnable {
 
         @Option(names = "--name", required = true,
                 description = "Recipe class name in PascalCase, e.g. RemoveStaleSuppression.")
-        String name;
+        private String name;
 
         @Option(names = "--type", defaultValue = "java",
                 description = "Recipe skeleton kind: java | scanning | yaml | refaster. "
                         + "Default: ${DEFAULT-VALUE}.")
-        String type;
+        private String type;
 
         @Option(names = "--display-name",
                 description = "Override the @DisplayName text. Default: humanised --name.")
-        String displayName;
+        private String displayName;
 
         @Option(names = "--description",
                 description = "Override the @Description text. Default: a TODO sentence.")
-        String description;
+        private String description;
 
         @Option(names = "--package",
                 description = "Override the recipe's package. Default: <rootPackage>.recipes from "
                         + DROPFILE + ".")
-        String packageOverride;
+        private String packageOverride;
 
         @Mixin
-        ProjectDirectoryMixin projectDirectory = new ProjectDirectoryMixin();
+        private ProjectDirectoryMixin projectDirectory = new ProjectDirectoryMixin();
 
         @Option(names = "--no-tests",
                 description = "Skip writing the test file. Default: write the test.")
-        boolean skipTests;
+        private boolean skipTests;
 
         @Option(names = "--force",
                 description = "Overwrite existing recipe/test files.")
-        boolean force;
+        private boolean force;
 
         @Option(names = "--test-style", defaultValue = "block",
                 description = "Test scaffold style: block (multi-line text blocks) | method "
                         + "(one-line before/after pair, tighter for argument-level transforms). "
                         + "Default: ${DEFAULT-VALUE}. method-style is currently only available "
                         + "with --type java|scanning.")
-        String testStyle;
+        private String testStyle;
 
         private record RecipeKind(
                 String mainSnippet,
@@ -336,54 +358,51 @@ public class RecipeScaffold implements Runnable {
                 return 2;
             }
 
-            Path root = resolveProjectRoot(projectDirectory.projectDir);
-            if (root == null) {
+            Path projectRoot = resolveProjectRoot(projectDirectory.projectDir());
+            if (projectRoot == null) {
                 return 2;
             }
-            Map<String, String> drop = readDropfile(root.resolve(DROPFILE));
-            String rootPackage = drop.get("rootPackage");
-            if (rootPackage == null || rootPackage.isEmpty()) {
+            Map<String, String> dropfile = readDropfile(projectRoot.resolve(DROPFILE));
+            String dropfileRootPackage = dropfile.get("rootPackage");
+            if (dropfileRootPackage == null || dropfileRootPackage.isEmpty()) {
                 System.err.println("FAIL: " + DROPFILE + " is missing rootPackage.");
                 return 3;
             }
 
-            String pkg = packageOverride != null ? packageOverride : rootPackage + ".recipes";
-            Path snippets = root.resolve("snippets");
-            if (!Files.isDirectory(snippets)) {
-                System.err.println("FAIL: snippets dir not found at " + snippets);
+            String pkg = packageOverride != null ? packageOverride : dropfileRootPackage + ".recipes";
+            Path snippetsDir = projectRoot.resolve("snippets");
+            if (!Files.isDirectory(snippetsDir)) {
+                System.err.println("FAIL: snippets dir not found at " + snippetsDir);
                 System.err.println("re-scaffold or copy template/snippets/ from recipescaffold.");
                 return 3;
             }
 
             // YAML compositions go at <rootPackage>.<recipeName> per upstream convention; Java/scanning at <package>.<recipeName>.
             String recipeId = kind.mainInResources()
-                    ? rootPackage + "." + name
+                    ? dropfileRootPackage + "." + name
                     : pkg + "." + name;
 
-            Map<String, String> repl = new LinkedHashMap<>();
-            repl.put("{{package}}", pkg);
-            repl.put("{{recipeName}}", name);
-            repl.put("{{recipeDisplayName}}", displayName != null ? displayName : humanise(name));
-            repl.put("{{recipeDescription}}",
+            Map<String, String> replacements = new LinkedHashMap<>();
+            replacements.put("{{package}}", pkg);
+            replacements.put("{{recipeName}}", name);
+            replacements.put("{{recipeDisplayName}}", displayName != null ? displayName : humanise(name));
+            replacements.put("{{recipeDescription}}",
                     description != null ? description : "TODO: describe what this recipe does.");
-            repl.put("{{recipeId}}", recipeId);
-            repl.put("{{recipeKebab}}", kebabCase(name));
+            replacements.put("{{recipeId}}", recipeId);
+            replacements.put("{{recipeKebab}}", kebabCase(name));
 
-            int rc = writeRecipeFile(root, snippets, kind, pkg, repl);
-            if (rc != 0) {
-                return rc;
+            int recipeRc = writeRecipeFile(projectRoot, snippetsDir, kind, pkg, replacements);
+            if (recipeRc != 0) {
+                return recipeRc;
             }
-            if (!skipTests) {
-                rc = writeTestFile(root, snippets, kind, pkg, repl);
-                if (rc != 0) {
-                    return rc;
-                }
+            if (skipTests) {
+                return 0;
             }
-            return 0;
+            return writeTestFile(projectRoot, snippetsDir, kind, pkg, replacements);
         }
 
         private int writeRecipeFile(Path root, Path snippets, RecipeKind kind,
-                                    String pkg, Map<String, String> repl) throws IOException {
+                                    String pkg, Map<String, String> replacements) throws IOException {
             Path mainFile = mainOutputPath(root, kind, pkg, name);
             Files.createDirectories(mainFile.getParent());
             if (Files.exists(mainFile) && !force) {
@@ -392,14 +411,14 @@ public class RecipeScaffold implements Runnable {
             }
             String mainBody = applySubstitutions(
                     Files.readString(snippets.resolve(kind.mainSnippet()), StandardCharsets.UTF_8),
-                    repl);
+                    replacements);
             Files.writeString(mainFile, mainBody, StandardCharsets.UTF_8);
             System.out.println("wrote " + mainFile);
             return 0;
         }
 
         private int writeTestFile(Path root, Path snippets, RecipeKind kind,
-                                  String pkg, Map<String, String> repl) throws IOException {
+                                  String pkg, Map<String, String> replacements) throws IOException {
             Path testDir = root.resolve("src/test/java").resolve(pkg.replace('.', '/'));
             Files.createDirectories(testDir);
             Path testFile = testDir.resolve(name + "Test.java");
@@ -412,7 +431,7 @@ public class RecipeScaffold implements Runnable {
                     : kind.testSnippet();
             String testBody = applySubstitutions(
                     Files.readString(snippets.resolve(testSnippet), StandardCharsets.UTF_8),
-                    repl);
+                    replacements);
             Files.writeString(testFile, testBody, StandardCharsets.UTF_8);
             System.out.println("wrote " + testFile);
             return 0;
@@ -427,8 +446,6 @@ public class RecipeScaffold implements Runnable {
                     .resolve(pkg.replace('.', '/'))
                     .resolve(name + ".java");
         }
-
-
     }
 
     @Command(
@@ -439,22 +456,22 @@ public class RecipeScaffold implements Runnable {
     static class VerifyGates implements Callable<Integer> {
 
         @Mixin
-        ProjectDirectoryMixin projectDirectory = new ProjectDirectoryMixin();
+        private ProjectDirectoryMixin projectDirectory = new ProjectDirectoryMixin();
 
         @Override
         public Integer call() throws Exception {
-            Path root = resolveProjectRoot(projectDirectory.projectDir);
-            if (root == null) {
+            Path projectRoot = resolveProjectRoot(projectDirectory.projectDir());
+            if (projectRoot == null) {
                 return 2;
             }
             // Tasks listed explicitly so all three run even when `check` is up-to-date.
-            System.out.println("running ./gradlew check integrationTest smokeTest in " + root);
-            int rc = runGradle(root, List.of("check", "integrationTest", "smokeTest"));
-            if (rc != 0) {
-                System.err.println("FAIL: gates exited " + rc);
-                return rc;
+            System.out.println("running ./gradlew check integrationTest smokeTest in " + projectRoot);
+            int exitCode = runGradle(projectRoot, List.of("check", "integrationTest", "smokeTest"));
+            if (exitCode != 0) {
+                System.err.println("FAIL: gates exited " + exitCode);
+                return exitCode;
             }
-            System.out.println("OK: gates passed at " + root);
+            System.out.println("OK: gates passed at " + projectRoot);
             return 0;
         }
 
@@ -468,66 +485,68 @@ public class RecipeScaffold implements Runnable {
     static class UpgradeSkills implements Callable<Integer> {
 
         @Mixin
-        ProjectDirectoryMixin projectDirectory = new ProjectDirectoryMixin();
+        private ProjectDirectoryMixin projectDirectory = new ProjectDirectoryMixin();
 
         @Option(names = "--template-dir",
                 description = "Override upstream template source. Default: walks upward from cwd looking for template/build.gradle.kts.")
-        Path templateDir;
+        private Path templateDir;
 
         @Option(names = "--dry-run",
                 description = "Print what would change without modifying anything.")
-        boolean dryRun;
+        private boolean dryRun;
 
         @Override
         public Integer call() throws Exception {
-            Path root = resolveProjectRoot(projectDirectory.projectDir);
-            if (root == null) {
+            Path projectRoot = resolveProjectRoot(projectDirectory.projectDir());
+            if (projectRoot == null) {
                 return 2;
             }
 
-            Path src = templateDir != null
+            Path upstream = templateDir != null
                     ? templateDir.toAbsolutePath().normalize()
                     : findTemplateDir();
-            Path upstreamSkills = src.resolve(".claude/skills");
+            Path upstreamSkills = upstream.resolve(".claude/skills");
             if (!Files.isDirectory(upstreamSkills)) {
-                System.err.println("FAIL: no .claude/skills under " + src);
+                System.err.println("FAIL: no .claude/skills under " + upstream);
                 System.err.println("pass --template-dir explicitly or run from a checkout of recipescaffold");
                 return 3;
             }
 
-            Path projectSkills = root.resolve(".claude/skills");
+            Path projectSkills = projectRoot.resolve(".claude/skills");
             Files.createDirectories(projectSkills);
 
-            int refreshed = 0;
-            try (DirectoryStream<Path> ds = Files.newDirectoryStream(upstreamSkills)) {
-                for (Path skill : ds) {
-                    if (!Files.isDirectory(skill)) {
-                        continue;
-                    }
-                    Path target = projectSkills.resolve(skill.getFileName());
-                    if (dryRun) {
-                        System.out.println("would refresh " + target);
-                        refreshed++;
-                        continue;
-                    }
-                    deleteRecursively(target);
-                    copyDir(skill, target);
-                    System.out.println("refreshed " + target);
-                    refreshed++;
-                }
+            List<Path> upstreamSkillDirs;
+            try (Stream<Path> entries = Files.list(upstreamSkills)) {
+                upstreamSkillDirs = entries.filter(Files::isDirectory).toList();
             }
-            System.out.println(dryRun ? "OK: " + refreshed + " skill(s) would be refreshed (dry-run)"
-                                       : "OK: " + refreshed + " skill(s) refreshed at " + projectSkills);
+            for (Path skill : upstreamSkillDirs) {
+                refreshSkill(skill, projectSkills.resolve(skill.getFileName()));
+            }
+
+            int refreshed = upstreamSkillDirs.size();
+            System.out.println(dryRun
+                    ? "OK: " + refreshed + " skill(s) would be refreshed (dry-run)"
+                    : "OK: " + refreshed + " skill(s) refreshed at " + projectSkills);
             return 0;
+        }
+
+        private void refreshSkill(Path source, Path target) throws IOException {
+            if (dryRun) {
+                System.out.println("would refresh " + target);
+                return;
+            }
+            deleteRecursively(target);
+            copyDir(source, target);
+            System.out.println("refreshed " + target);
         }
     }
 
     static Path findTemplateDir() {
         Path here = Paths.get("").toAbsolutePath();
-        for (Path p = here; p != null; p = p.getParent()) {
-            Path candidate = p.resolve("template").resolve("build.gradle.kts");
+        for (Path candidateRoot = here; candidateRoot != null; candidateRoot = candidateRoot.getParent()) {
+            Path candidate = candidateRoot.resolve("template").resolve("build.gradle.kts");
             if (Files.isRegularFile(candidate)) {
-                return p.resolve("template");
+                return candidateRoot.resolve("template");
             }
         }
         return here.resolve("template");
@@ -535,9 +554,9 @@ public class RecipeScaffold implements Runnable {
 
     static Path findProjectRoot() {
         Path here = Paths.get("").toAbsolutePath();
-        for (Path p = here; p != null; p = p.getParent()) {
-            if (Files.isRegularFile(p.resolve(DROPFILE))) {
-                return p;
+        for (Path candidate = here; candidate != null; candidate = candidate.getParent()) {
+            if (Files.isRegularFile(candidate.resolve(DROPFILE))) {
+                return candidate;
             }
         }
         return null;
@@ -558,88 +577,102 @@ public class RecipeScaffold implements Runnable {
         return root;
     }
 
-    static void deleteRecursively(Path p) throws IOException {
-        if (!Files.exists(p)) {
+    static void deleteRecursively(Path target) throws IOException {
+        if (!Files.exists(target)) {
             return;
         }
-        Files.walkFileTree(p, new SimpleFileVisitor<Path>() {
-            @Override
-            public FileVisitResult visitFile(Path f, BasicFileAttributes a) throws IOException {
-                Files.delete(f);
-                return FileVisitResult.CONTINUE;
-            }
+        try (Stream<Path> stream = Files.walk(target)) {
+            stream.sorted(Comparator.reverseOrder()).forEach(RecipeScaffold::deleteUnchecked);
+        } catch (UncheckedIOException e) {
+            throw e.getCause();
+        }
+    }
 
-            @Override
-            public FileVisitResult postVisitDirectory(Path d, IOException exc) throws IOException {
-                if (exc != null) {
-                    throw exc;
-                }
-                Files.delete(d);
-                return FileVisitResult.CONTINUE;
-            }
-        });
+    private static void deleteUnchecked(Path path) {
+        try {
+            Files.delete(path);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     static void copyDir(Path src, Path dst) throws IOException {
-        Files.walkFileTree(src, new SimpleFileVisitor<Path>() {
-            @Override
-            public FileVisitResult preVisitDirectory(Path d, BasicFileAttributes a) throws IOException {
-                Files.createDirectories(dst.resolve(src.relativize(d)));
-                return FileVisitResult.CONTINUE;
-            }
-
-            @Override
-            public FileVisitResult visitFile(Path f, BasicFileAttributes a) throws IOException {
-                Files.copy(f, dst.resolve(src.relativize(f)),
-                        StandardCopyOption.COPY_ATTRIBUTES, StandardCopyOption.REPLACE_EXISTING);
-                return FileVisitResult.CONTINUE;
-            }
-        });
+        try (Stream<Path> stream = Files.walk(src)) {
+            stream.forEach(srcPath -> copyEntry(srcPath, dst.resolve(src.relativize(srcPath))));
+        } catch (UncheckedIOException e) {
+            throw e.getCause();
+        }
     }
 
-    // Like copyDir but skips SKIP_DIRS at the top level. Used by Init in case the template checkout has stale build/.
-    static void copyTree(Path src, Path dst) throws IOException {
-        Files.walkFileTree(src, new SimpleFileVisitor<Path>() {
-            @Override
-            public FileVisitResult preVisitDirectory(Path d, BasicFileAttributes a) throws IOException {
-                Path rel = src.relativize(d);
-                if (rel.getNameCount() > 0 && SKIP_DIRS.contains(rel.getName(0).toString())) {
-                    return FileVisitResult.SKIP_SUBTREE;
-                }
-                Files.createDirectories(dst.resolve(rel));
-                return FileVisitResult.CONTINUE;
+    private static void copyEntry(Path source, Path destination) {
+        try {
+            if (Files.isDirectory(source)) {
+                Files.createDirectories(destination);
+                return;
             }
+            Files.createDirectories(destination.getParent());
+            Files.copy(source, destination,
+                    StandardCopyOption.COPY_ATTRIBUTES, StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
 
-            @Override
-            public FileVisitResult visitFile(Path f, BasicFileAttributes a) throws IOException {
-                Path rel = src.relativize(f);
-                Path target = dst.resolve(rel);
-                Files.createDirectories(target.getParent());
-                Files.copy(f, target, StandardCopyOption.COPY_ATTRIBUTES, StandardCopyOption.REPLACE_EXISTING);
-                return FileVisitResult.CONTINUE;
+    // Like copyDir but skips SKIP_DIRS at the top level. SimpleFileVisitor needed because Files.walk
+    // cannot prune subtrees mid-stream — without that, we would visit (and copy) skipped dirs' contents.
+    static void copyTree(Path src, Path dst) throws IOException {
+        Files.walkFileTree(src, new SkippingCopyVisitor(src, dst));
+    }
+
+    @SuppressWarnings("NullableProblems")
+    private static final class SkippingCopyVisitor extends SimpleFileVisitor<Path> {
+        private final Path src;
+        private final Path dst;
+
+        SkippingCopyVisitor(Path src, Path dst) {
+            this.src = src;
+            this.dst = dst;
+        }
+
+        @Override
+        public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+            Path rel = src.relativize(dir);
+            if (rel.getNameCount() > 0 && SKIP_DIRS.contains(rel.getName(0).toString())) {
+                return FileVisitResult.SKIP_SUBTREE;
             }
-        });
+            Files.createDirectories(dst.resolve(rel));
+            return FileVisitResult.CONTINUE;
+        }
+
+        @Override
+        public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+            Path rel = src.relativize(file);
+            Path target = dst.resolve(rel);
+            Files.createDirectories(target.getParent());
+            Files.copy(file, target, StandardCopyOption.COPY_ATTRIBUTES, StandardCopyOption.REPLACE_EXISTING);
+            return FileVisitResult.CONTINUE;
+        }
     }
 
     static void renamePackageMarkers(Path out, String pkgPath) throws IOException {
         for (String parent : MARKER_PARENTS) {
-            Path p = out.resolve(parent);
-            if (!Files.isDirectory(p)) {
-                continue;
-            }
-            Path marker = p.resolve(MARKER_DIR);
-            if (!Files.isDirectory(marker)) {
-                continue;
-            }
-            Path target = p.resolve(pkgPath);
-            Files.createDirectories(target);
-            try (DirectoryStream<Path> ds = Files.newDirectoryStream(marker)) {
-                for (Path child : ds) {
-                    Files.move(child, target.resolve(marker.relativize(child)));
-                }
-            }
-            Files.delete(marker);
+            renameMarkerUnder(out.resolve(parent), pkgPath);
         }
+    }
+
+    private static void renameMarkerUnder(Path parentDir, String pkgPath) throws IOException {
+        Path marker = parentDir.resolve(MARKER_DIR);
+        if (!Files.isDirectory(parentDir) || !Files.isDirectory(marker)) {
+            return;
+        }
+        Path target = parentDir.resolve(pkgPath);
+        Files.createDirectories(target);
+        try (Stream<Path> children = Files.list(marker)) {
+            for (Path child : (Iterable<Path>) children::iterator) {
+                Files.move(child, target.resolve(marker.relativize(child)));
+            }
+        }
+        Files.delete(marker);
     }
 
     // Allowlist, not denylist: brittle by choice so substitution can never touch the wrapper jar.
@@ -652,156 +685,167 @@ public class RecipeScaffold implements Runnable {
             ".editorconfig"
     );
 
-    static boolean isTextFile(Path p) {
-        String name = p.getFileName().toString();
+    static boolean isTextFile(Path path) {
+        String name = path.getFileName().toString();
         if (TEXT_NAMES.contains(name)) {
             return true;
         }
-        int dot = name.lastIndexOf('.');
-        if (dot < 0) {
-            return false;
-        }
-        return TEXT_EXTS.contains(name.substring(dot));
+        int dotIndex = name.lastIndexOf('.');
+        return dotIndex >= 0 && TEXT_EXTS.contains(name.substring(dotIndex));
     }
 
     // snippets/ ships {{...}} markers consumed by add-recipe; init must not touch them.
-    static boolean isUnderSnippets(Path root, Path p) {
-        Path rel = root.relativize(p);
+    static boolean isUnderSnippets(Path root, Path path) {
+        Path rel = root.relativize(path);
         return rel.getNameCount() > 0 && rel.getName(0).toString().equals("snippets");
     }
 
-    static void substituteIn(Path root, Map<String, String> repl) throws IOException {
-        try (var stream = Files.walk(root)) {
-            for (Path p : (Iterable<Path>) stream::iterator) {
-                if (!Files.isRegularFile(p) || !isTextFile(p)) {
-                    continue;
-                }
-                if (isUnderSnippets(root, p)) {
-                    continue;
-                }
-                String content = Files.readString(p, StandardCharsets.UTF_8);
-                String updated = applySubstitutions(content, repl);
-                if (!updated.equals(content)) {
-                    Files.writeString(p, updated, StandardCharsets.UTF_8);
-                }
+    static void substituteIn(Path root, Map<String, String> replacements) throws IOException {
+        try (Stream<Path> stream = Files.walk(root)) {
+            stream.filter(Files::isRegularFile)
+                    .filter(RecipeScaffold::isTextFile)
+                    .filter(path -> !isUnderSnippets(root, path))
+                    .forEach(path -> applySubstitutionsInPlace(path, replacements));
+        } catch (UncheckedIOException e) {
+            throw e.getCause();
+        }
+    }
+
+    private static void applySubstitutionsInPlace(Path path, Map<String, String> replacements) {
+        try {
+            String content = Files.readString(path, StandardCharsets.UTF_8);
+            String updated = applySubstitutions(content, replacements);
+            if (!updated.equals(content)) {
+                Files.writeString(path, updated, StandardCharsets.UTF_8);
             }
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
         }
     }
 
     // Negative lookbehind avoids matching GitHub Actions ${{ secrets.X }} in workflow files.
     static final Pattern RESIDUAL_PATTERN = Pattern.compile(
-            "(?<!\\$)\\{\\{[a-zA-Z][a-zA-Z0-9]*\\}\\}|__ROOT_PACKAGE__");
+            "(?<!\\$)\\{\\{[a-zA-Z][a-zA-Z0-9]*}}|__ROOT_PACKAGE__");
 
     static List<String> findResiduals(Path root) throws IOException {
+        try (Stream<Path> stream = Files.walk(root)) {
+            return stream.filter(Files::isRegularFile)
+                    .filter(RecipeScaffold::isTextFile)
+                    .filter(path -> !isUnderSnippets(root, path))
+                    .flatMap(RecipeScaffold::residualsIn)
+                    .toList();
+        } catch (UncheckedIOException e) {
+            throw e.getCause();
+        }
+    }
+
+    private static Stream<String> residualsIn(Path path) {
+        String content;
+        try {
+            content = Files.readString(path, StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
         List<String> hits = new ArrayList<>();
-        try (var stream = Files.walk(root)) {
-            for (Path p : (Iterable<Path>) stream::iterator) {
-                if (!Files.isRegularFile(p) || !isTextFile(p)) {
-                    continue;
-                }
-                if (isUnderSnippets(root, p)) {
-                    continue;
-                }
-                String content = Files.readString(p, StandardCharsets.UTF_8);
-                Matcher m = RESIDUAL_PATTERN.matcher(content);
-                int line = 1;
-                int scanned = 0;
-                while (m.find()) {
-                    for (int i = scanned; i < m.start(); i++) {
-                        if (content.charAt(i) == '\n') {
-                            line++;
-                        }
-                    }
-                    scanned = m.start();
-                    hits.add(p + ":" + line + ": " + m.group());
+        Matcher matcher = RESIDUAL_PATTERN.matcher(content);
+        int line = 1;
+        int scanned = 0;
+        while (matcher.find()) {
+            for (int i = scanned; i < matcher.start(); i++) {
+                if (content.charAt(i) == '\n') {
+                    line++;
                 }
             }
+            scanned = matcher.start();
+            hits.add(path + ":" + line + ": " + matcher.group());
         }
-        return hits;
+        return hits.stream();
     }
 
     // Flat key:value pairs only; that is all the dropfile contains.
     static Map<String, String> readDropfile(Path file) throws IOException {
-        Map<String, String> m = new LinkedHashMap<>();
-        for (String line : Files.readAllLines(file, StandardCharsets.UTF_8)) {
-            String trimmed = line.strip();
-            if (trimmed.isEmpty() || trimmed.startsWith("#")) {
-                continue;
-            }
-            int colon = trimmed.indexOf(':');
-            if (colon <= 0) {
-                continue;
-            }
-            String key = trimmed.substring(0, colon).strip();
-            String val = trimmed.substring(colon + 1).strip();
-            if (val.startsWith("\"") && val.endsWith("\"") && val.length() >= 2) {
-                val = val.substring(1, val.length() - 1);
-            }
-            m.put(key, val);
+        try (Stream<String> lines = Files.lines(file, StandardCharsets.UTF_8)) {
+            return lines.map(String::strip)
+                    .filter(line -> !line.isEmpty() && !line.startsWith("#"))
+                    .map(RecipeScaffold::parseDropfileEntry)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toMap(
+                            Map.Entry::getKey, Map.Entry::getValue,
+                            (oldValue, newValue) -> newValue, LinkedHashMap::new));
         }
-        return m;
     }
 
-    static int runGradle(Path dir, List<String> tasks) throws IOException, InterruptedException {
-        String cmd = System.getProperty("os.name").toLowerCase().startsWith("windows")
+    private static Map.Entry<String, String> parseDropfileEntry(String line) {
+        int colonIndex = line.indexOf(':');
+        if (colonIndex <= 0) {
+            return null;
+        }
+        String key = line.substring(0, colonIndex).strip();
+        String value = line.substring(colonIndex + 1).strip();
+        if (value.length() >= 2 && value.startsWith("\"") && value.endsWith("\"")) {
+            value = value.substring(1, value.length() - 1);
+        }
+        return Map.entry(key, value);
+    }
+
+    static int runGradle(Path workingDir, List<String> tasks) throws IOException, InterruptedException {
+        List<String> command = new ArrayList<>();
+        command.add(wrapperScript());
+        command.addAll(tasks);
+        return new ProcessBuilder(command)
+                .directory(workingDir.toFile())
+                .inheritIO()
+                .start()
+                .waitFor();
+    }
+
+    static String wrapperScript() {
+        return System.getProperty("os.name").toLowerCase().startsWith("windows")
                 ? "gradlew.bat"
                 : "./gradlew";
-        List<String> argv = new ArrayList<>();
-        argv.add(cmd);
-        argv.addAll(tasks);
-        ProcessBuilder pb = new ProcessBuilder(argv)
-                .directory(dir.toFile())
-                .inheritIO();
-        return pb.start().waitFor();
     }
 
-    static String applySubstitutions(String s, Map<String, String> repl) {
-        String out = s;
-        for (Map.Entry<String, String> e : repl.entrySet()) {
-            out = out.replace(e.getKey(), e.getValue());
+    static String applySubstitutions(String text, Map<String, String> replacements) {
+        String result = text;
+        for (Map.Entry<String, String> entry : replacements.entrySet()) {
+            result = result.replace(entry.getKey(), entry.getValue());
         }
-        return out;
+        return result;
     }
 
-    static boolean isPascalCase(String s) {
-        if (s == null || s.isEmpty()) {
+    static boolean isPascalCase(String identifier) {
+        if (identifier == null || identifier.isEmpty()) {
             return false;
         }
-        if (!Character.isUpperCase(s.charAt(0))) {
+        if (!Character.isUpperCase(identifier.charAt(0))) {
             return false;
         }
-        for (int i = 0; i < s.length(); i++) {
-            char c = s.charAt(i);
-            if (!Character.isLetterOrDigit(c)) {
-                return false;
-            }
-        }
-        return true;
+        return identifier.chars().allMatch(Character::isLetterOrDigit);
     }
 
     static String humanise(String pascal) {
-        StringBuilder sb = new StringBuilder();
+        StringBuilder result = new StringBuilder();
         for (int i = 0; i < pascal.length(); i++) {
-            char c = pascal.charAt(i);
-            if (i > 0 && Character.isUpperCase(c)) {
-                sb.append(' ').append(Character.toLowerCase(c));
+            char ch = pascal.charAt(i);
+            if (i > 0 && Character.isUpperCase(ch)) {
+                result.append(' ').append(Character.toLowerCase(ch));
             } else {
-                sb.append(c);
+                result.append(ch);
             }
         }
-        return sb.toString();
+        return result.toString();
     }
 
     static String kebabCase(String pascal) {
-        StringBuilder sb = new StringBuilder();
+        StringBuilder result = new StringBuilder();
         for (int i = 0; i < pascal.length(); i++) {
-            char c = pascal.charAt(i);
-            if (i > 0 && Character.isUpperCase(c)) {
-                sb.append('-').append(Character.toLowerCase(c));
+            char ch = pascal.charAt(i);
+            if (i > 0 && Character.isUpperCase(ch)) {
+                result.append('-').append(Character.toLowerCase(ch));
             } else {
-                sb.append(Character.toLowerCase(c));
+                result.append(Character.toLowerCase(ch));
             }
         }
-        return sb.toString();
+        return result.toString();
     }
 }

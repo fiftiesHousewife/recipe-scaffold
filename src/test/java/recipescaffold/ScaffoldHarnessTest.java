@@ -83,7 +83,9 @@ class ScaffoldHarnessTest {
         setField(add, "name", name);
         setField(add, "type", type);
         setField(add, "testStyle", testStyle);
-        setField(add, "projectDir", projectDir);
+        RecipeScaffold.ProjectDirectoryMixin mixin = new RecipeScaffold.ProjectDirectoryMixin();
+        setField(mixin, "projectDir", projectDir);
+        setField(add, "projectDirectory", mixin);
         assertThat(add.call())
                 .as("add-recipe %s --type=%s --test-style=%s", name, type, testStyle)
                 .isZero();

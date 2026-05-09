@@ -14,6 +14,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -147,6 +148,141 @@ class RecipeScaffoldUnitTest {
         assertThat(RecipeScaffold.isUnderSnippets(root, root.resolve("snippets"))).isTrue();
         assertThat(RecipeScaffold.isUnderSnippets(root, root.resolve("src/main/java/Foo.java"))).isFalse();
         assertThat(RecipeScaffold.isUnderSnippets(root, root.resolve("src/snippets/inner"))).isFalse();
+    }
+
+    @Test
+    void copyTree_skipsTopLevelSkipDirs(@TempDir Path tmp) throws Exception {
+        Path src = tmp.resolve("src");
+        Files.createDirectories(src.resolve("kept/inner"));
+        Files.createDirectories(src.resolve("build/skipped"));
+        Files.createDirectories(src.resolve(".gradle/skipped"));
+        Files.writeString(src.resolve("kept/file.txt"), "keep me", StandardCharsets.UTF_8);
+        Files.writeString(src.resolve("build/skipped/file.txt"), "drop me", StandardCharsets.UTF_8);
+        Files.writeString(src.resolve(".gradle/skipped/file.txt"), "drop me", StandardCharsets.UTF_8);
+
+        Path dst = tmp.resolve("dst");
+        RecipeScaffold.copyTree(src, dst);
+
+        assertThat(dst.resolve("kept/file.txt")).exists();
+        assertThat(dst.resolve("kept/inner")).exists();
+        assertThat(dst.resolve("build")).doesNotExist();
+        assertThat(dst.resolve(".gradle")).doesNotExist();
+    }
+
+    @Test
+    void copyTree_doesNotSkipDeeperSkipDirNames(@TempDir Path tmp) throws Exception {
+        Path src = tmp.resolve("src");
+        Files.createDirectories(src.resolve("nested/build/data"));
+        Files.writeString(src.resolve("nested/build/data/x.txt"), "deep", StandardCharsets.UTF_8);
+
+        Path dst = tmp.resolve("dst");
+        RecipeScaffold.copyTree(src, dst);
+
+        assertThat(dst.resolve("nested/build/data/x.txt")).exists();
+    }
+
+    @Test
+    void renamePackageMarkers_renamesMarkerToSlashedPackagePath(@TempDir Path tmp) throws Exception {
+        for (String parent : RecipeScaffold.MARKER_PARENTS) {
+            Path marker = tmp.resolve(parent).resolve(RecipeScaffold.MARKER_DIR);
+            Files.createDirectories(marker);
+            Files.writeString(marker.resolve("Marker.java"), "// marker " + parent, StandardCharsets.UTF_8);
+        }
+
+        RecipeScaffold.renamePackageMarkers(tmp, "io/example/demo");
+
+        for (String parent : RecipeScaffold.MARKER_PARENTS) {
+            assertThat(tmp.resolve(parent).resolve("__ROOT_PACKAGE__")).doesNotExist();
+            assertThat(tmp.resolve(parent).resolve("io/example/demo/Marker.java")).exists();
+        }
+    }
+
+    @Test
+    void renamePackageMarkers_silentlyIgnoresMissingParents(@TempDir Path tmp) throws Exception {
+        // No parent dirs exist; call should be a no-op rather than throw.
+        RecipeScaffold.renamePackageMarkers(tmp, "io/example/demo");
+        assertThat(Files.list(tmp).toList()).isEmpty();
+    }
+
+    @Test
+    void substituteIn_replacesPlaceholdersAndSkipsSnippets(@TempDir Path tmp) throws Exception {
+        Files.writeString(tmp.resolve("build.gradle.kts"), "group = \"{{group}}\"", StandardCharsets.UTF_8);
+        Path snippets = tmp.resolve("snippets");
+        Files.createDirectories(snippets);
+        Files.writeString(snippets.resolve("recipe.template"), "recipe = {{recipeName}}", StandardCharsets.UTF_8);
+        Files.writeString(tmp.resolve("logo.png"), "binary {{wont-touch}}", StandardCharsets.UTF_8);
+
+        RecipeScaffold.substituteIn(tmp, Map.of("{{group}}", "io.example", "{{recipeName}}", "Foo"));
+
+        assertThat(Files.readString(tmp.resolve("build.gradle.kts"))).isEqualTo("group = \"io.example\"");
+        assertThat(Files.readString(snippets.resolve("recipe.template"))).isEqualTo("recipe = {{recipeName}}");
+        assertThat(Files.readString(tmp.resolve("logo.png"))).isEqualTo("binary {{wont-touch}}");
+    }
+
+    @Test
+    void findResiduals_reportsLineNumbersAndSkipsActionsExpressions(@TempDir Path tmp) throws Exception {
+        Files.writeString(tmp.resolve("a.kts"), String.join("\n",
+                "line one",
+                "line {{leftover}} two",
+                "line three",
+                "and __ROOT_PACKAGE__ here"
+        ), StandardCharsets.UTF_8);
+        Files.writeString(tmp.resolve("workflow.yml"),
+                "value: ${{ secrets.X }}\nother: {{stillLeftover}}", StandardCharsets.UTF_8);
+
+        List<String> hits = RecipeScaffold.findResiduals(tmp);
+
+        assertThat(hits).anyMatch(h -> h.endsWith(":2: {{leftover}}"));
+        assertThat(hits).anyMatch(h -> h.endsWith(":4: __ROOT_PACKAGE__"));
+        assertThat(hits).anyMatch(h -> h.endsWith(":2: {{stillLeftover}}"));
+        assertThat(hits).noneMatch(h -> h.contains("secrets.X"));
+    }
+
+    @Test
+    void deleteRecursively_removesDirectoryTree(@TempDir Path tmp) throws Exception {
+        Path target = tmp.resolve("victim");
+        Files.createDirectories(target.resolve("a/b/c"));
+        Files.writeString(target.resolve("a/b/c/file.txt"), "x", StandardCharsets.UTF_8);
+        Files.writeString(target.resolve("a/file.txt"), "y", StandardCharsets.UTF_8);
+
+        RecipeScaffold.deleteRecursively(target);
+
+        assertThat(target).doesNotExist();
+    }
+
+    @Test
+    void deleteRecursively_isNoOpWhenPathMissing(@TempDir Path tmp) throws Exception {
+        RecipeScaffold.deleteRecursively(tmp.resolve("never-existed"));
+    }
+
+    @Test
+    void wrapperScript_pickedByOs() {
+        boolean isWindows = System.getProperty("os.name").toLowerCase().startsWith("windows");
+        assertThat(RecipeScaffold.wrapperScript())
+                .isEqualTo(isWindows ? "gradlew.bat" : "./gradlew");
+    }
+
+    @Test
+    void initWriteDropfile_writesExpectedYaml(@TempDir Path tmp) throws Exception {
+        RecipeScaffold.Init init = new RecipeScaffold.Init();
+        setField(init, "group", "io.github.acme");
+        setField(init, "artifact", "acme-rewrite-recipes");
+        setField(init, "rootPackage", "io.github.acme");
+        setField(init, "javaTargetMain", "17");
+        setField(init, "javaTargetTests", "25");
+
+        java.lang.reflect.Method writeDropfile = init.getClass().getDeclaredMethod("writeDropfile", Path.class);
+        writeDropfile.setAccessible(true);
+        writeDropfile.invoke(init, tmp);
+
+        String body = Files.readString(tmp.resolve(".recipescaffold.yml"));
+        assertThat(body)
+                .contains("recipescaffoldVersion: \"" + RecipeScaffold.VERSION + "\"")
+                .contains("group: \"io.github.acme\"")
+                .contains("artifact: \"acme-rewrite-recipes\"")
+                .contains("rootPackage: \"io.github.acme\"")
+                .contains("javaTargetMain: \"17\"")
+                .contains("javaTargetTests: \"25\"");
     }
 
     @Test
