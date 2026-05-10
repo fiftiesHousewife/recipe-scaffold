@@ -9,6 +9,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 ### Added
 
 - **`upgrade-build-logic` subcommand.** Walks upward to find `.recipe-scaffold.yml`, then replaces the project's vendored `build-logic/` tree with the upstream copy from `template/build-logic/`. Same shape as `upgrade-skills`: accepts `--directory`, `--template-dir`, `--dry-run`. Wholesale refresh (the whole tree is scaffold-managed). `gradle/libs.versions.toml` is intentionally not touched; if `./gradlew check` reports missing catalog entries, diff manually. Closes the manual `curl` step in the v0.3.0 migration block.
+- **`doctor` subcommand.** Drift + upgrade-path advisor. Reports CLI version, the project's `recipeScaffoldVersion` (when invoked from inside a scaffolded project), latest upstream tag (GitHub API, cached 24h), and a heuristic for the install path (JBang / fat jar / installDist / Gradle). Prints the right upgrade command for the detected path. `--no-network` for offline use; falls back from `releases/latest` to `tags` so it works whether or not a GitHub Release has been published.
 
 ## [0.3.0] — 2026-05-10
 

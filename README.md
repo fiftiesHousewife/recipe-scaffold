@@ -120,6 +120,7 @@ After upgrading the CLI itself, **existing scaffolded projects** still need to r
 | [`verify-gates`](#verify-gates) | Run `./gradlew check integrationTest smokeTest`. | Pre-push and pre-publish sanity check. |
 | [`upgrade-skills`](#upgrade-skills) | Refresh the project's `.claude/skills/` from the upstream copy. | After `recipe-scaffold` itself releases. |
 | [`upgrade-build-logic`](#upgrade-build-logic) | Refresh the project's vendored `build-logic/` from the upstream copy. | After upstream convention-plugin fixes. |
+| [`doctor`](#doctor) | Report version drift and the right upgrade command for your install path. | Anytime; replaces the manual upgrade table below. |
 
 `--help` on any subcommand lists every option.
 
@@ -208,6 +209,14 @@ jbang recipe-scaffold@fiftiesHousewife/recipe-scaffold upgrade-build-logic [--dr
 ```
 
 Replaces the project's vendored `build-logic/` tree with the upstream copy from `template/build-logic/`. The whole tree is scaffold-managed, so the refresh is wholesale — don't keep local edits to `recipe-library.gradle.kts`. `gradle/libs.versions.toml` is **not** refreshed; if `./gradlew check` reports missing catalog entries after an upgrade, diff `template/gradle/libs.versions.toml` against your project's copy by hand. Accepts `--directory`, `--template-dir`, `--dry-run`.
+
+### `doctor`
+
+```bash
+recipe-scaffold doctor [--no-network]
+```
+
+Reports the running CLI version, the project's `recipeScaffoldVersion` (if invoked from inside a scaffolded project), the latest tag on the upstream repo (single GitHub API call, cached for 24h at `~/.cache/recipe-scaffold/latest-release.txt`), and a heuristic for which install path the CLI was launched from. When drift is detected, prints the upgrade command appropriate to your install path. `--no-network` skips the API call for offline use. Accepts `--directory`.
 
 ## What you get in the scaffolded project
 

@@ -6,8 +6,13 @@
 
 package recipescaffold;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
@@ -16,6 +21,9 @@ import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.nio.file.attribute.FileTime;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -44,7 +52,8 @@ import picocli.CommandLine.Option;
                 RecipeScaffold.AddRecipe.class,
                 RecipeScaffold.VerifyGates.class,
                 RecipeScaffold.UpgradeSkills.class,
-                RecipeScaffold.UpgradeBuildLogic.class
+                RecipeScaffold.UpgradeBuildLogic.class,
+                RecipeScaffold.Doctor.class
         }
 )
 public class RecipeScaffold implements Runnable {
@@ -598,6 +607,188 @@ public class RecipeScaffold implements Runnable {
             System.out.println("OK: build-logic/ refreshed at " + projectBuildLogic);
             return 0;
         }
+    }
+
+    @Command(
+            name = "doctor",
+            description = "Report version drift and the right upgrade command for your install path.",
+            mixinStandardHelpOptions = true
+    )
+    static class Doctor implements Callable<Integer> {
+
+        @Mixin
+        private ProjectDirectoryMixin projectDirectory = new ProjectDirectoryMixin();
+
+        @Option(names = "--no-network",
+                description = "Skip the GitHub release check (offline mode).")
+        private boolean noNetwork;
+
+        @Override
+        public Integer call() {
+            System.out.println("recipe-scaffold version: " + VERSION);
+
+            Path projectRoot = resolveProjectRootSilent(projectDirectory.projectDir());
+            String dropfileVersion = null;
+            if (projectRoot != null) {
+                try {
+                    Map<String, String> dropfile = readDropfile(projectRoot.resolve(DROPFILE));
+                    dropfileVersion = dropfile.get("recipeScaffoldVersion");
+                    System.out.println("project: " + projectRoot + " (scaffolded with v" + dropfileVersion + ")");
+                } catch (Exception e) {
+                    System.out.println("project: " + projectRoot + " (could not read dropfile: " + e.getMessage() + ")");
+                }
+            } else {
+                System.out.println("project: not found (run from inside a scaffolded project to see drift)");
+            }
+
+            String latestTag = noNetwork ? null : fetchLatestReleaseTagCached();
+            if (latestTag != null) {
+                System.out.println("latest upstream release: " + latestTag);
+            } else {
+                System.out.println("latest upstream release: unavailable" + (noNetwork ? " (--no-network)" : " (offline or API error)"));
+            }
+
+            String installPath = detectInstallPath();
+            System.out.println("install path: " + installPath);
+
+            boolean cliBehind = latestTag != null && !stripV(latestTag).equals(VERSION);
+            boolean projectBehind = dropfileVersion != null && !dropfileVersion.equals(VERSION);
+
+            System.out.println();
+            if (cliBehind) {
+                System.out.println("CLI is behind " + latestTag + ". To upgrade:");
+                System.out.println("  " + upgradeCommandFor(installPath));
+                System.out.println();
+            }
+            if (projectBehind) {
+                System.out.println("Project was scaffolded with v" + dropfileVersion + "; CLI is at v" + VERSION + ".");
+                System.out.println("Refresh the vendored pieces:");
+                System.out.println("  recipe-scaffold upgrade-skills");
+                System.out.println("  recipe-scaffold upgrade-build-logic");
+                System.out.println();
+            }
+            if (!cliBehind && !projectBehind) {
+                System.out.println("OK: nothing to do.");
+            }
+            return 0;
+        }
+    }
+
+    static Path resolveProjectRootSilent(Path explicit) {
+        Path root = explicit != null ? explicit.toAbsolutePath().normalize() : findProjectRoot();
+        if (root == null || !Files.isRegularFile(root.resolve(DROPFILE))) {
+            return null;
+        }
+        return root;
+    }
+
+    static String stripV(String tag) {
+        return tag.startsWith("v") ? tag.substring(1) : tag;
+    }
+
+    static String detectInstallPath() {
+        String jbangScript = System.getProperty("jbang.script");
+        if (jbangScript != null) {
+            return "JBang (" + jbangScript + ")";
+        }
+        String classPath = System.getProperty("java.class.path", "");
+        if (classPath.contains(File.separator + ".jbang" + File.separator)) {
+            return "JBang (cached jar)";
+        }
+        if (classPath.contains("recipe-scaffold.jar")) {
+            return "fat jar";
+        }
+        if (classPath.contains("install" + File.separator + "recipe-scaffold")) {
+            return "installDist launcher";
+        }
+        if (classPath.contains("build" + File.separator + "classes") || classPath.contains("build" + File.separator + "libs")) {
+            return "Gradle (./gradlew run / installDist sources)";
+        }
+        return "unknown";
+    }
+
+    static String upgradeCommandFor(String installPath) {
+        if (installPath.startsWith("JBang")) {
+            return "jbang cache clear && jbang recipe-scaffold@fiftiesHousewife/recipe-scaffold --version";
+        }
+        if (installPath.equals("fat jar")) {
+            return "git pull && ./gradlew jar";
+        }
+        if (installPath.equals("installDist launcher")) {
+            return "git pull && ./gradlew installDist";
+        }
+        if (installPath.startsWith("Gradle")) {
+            return "git pull";
+        }
+        return "see README \"Upgrading recipe-scaffold itself\"";
+    }
+
+    static String fetchLatestReleaseTagCached() {
+        Path cacheDir = Paths.get(System.getProperty("user.home"), ".cache", "recipe-scaffold");
+        Path cacheFile = cacheDir.resolve("latest-release.txt");
+        try {
+            if (Files.isRegularFile(cacheFile)) {
+                FileTime mtime = Files.getLastModifiedTime(cacheFile);
+                if (Instant.now().minus(Duration.ofHours(24)).isBefore(mtime.toInstant())) {
+                    String cached = Files.readString(cacheFile, StandardCharsets.UTF_8).strip();
+                    if (!cached.isEmpty()) {
+                        return cached;
+                    }
+                }
+            }
+        } catch (IOException ignored) {
+            // fall through to live fetch
+        }
+        String tag = fetchLatestReleaseTag();
+        if (tag != null) {
+            try {
+                Files.createDirectories(cacheDir);
+                Files.writeString(cacheFile, tag, StandardCharsets.UTF_8);
+            } catch (IOException ignored) {
+                // cache write failure is non-fatal
+            }
+        }
+        return tag;
+    }
+
+    static String fetchLatestReleaseTag() {
+        String tag = githubGetTag("https://api.github.com/repos/fiftiesHousewife/recipe-scaffold/releases/latest", true);
+        if (tag != null) {
+            return tag;
+        }
+        // Fall back to plain tags listing — covers the case where a tag exists
+        // but no GitHub Release object has been published yet.
+        return githubGetTag("https://api.github.com/repos/fiftiesHousewife/recipe-scaffold/tags", false);
+    }
+
+    private static String githubGetTag(String url, boolean releaseShape) {
+        try {
+            HttpClient client = HttpClient.newBuilder()
+                    .connectTimeout(Duration.ofSeconds(3))
+                    .build();
+            HttpRequest req = HttpRequest.newBuilder(URI.create(url))
+                    .header("Accept", "application/vnd.github+json")
+                    .timeout(Duration.ofSeconds(5))
+                    .GET()
+                    .build();
+            HttpResponse<String> response = client.send(req, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() != 200) {
+                return null;
+            }
+            return releaseShape ? parseTagName(response.body()) : parseFirstTagsName(response.body());
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    static String parseTagName(String json) {
+        Matcher m = Pattern.compile("\"tag_name\"\\s*:\\s*\"([^\"]+)\"").matcher(json);
+        return m.find() ? m.group(1) : null;
+    }
+
+    static String parseFirstTagsName(String json) {
+        Matcher m = Pattern.compile("\"name\"\\s*:\\s*\"([^\"]+)\"").matcher(json);
+        return m.find() ? m.group(1) : null;
     }
 
     static Path findTemplateDir() {

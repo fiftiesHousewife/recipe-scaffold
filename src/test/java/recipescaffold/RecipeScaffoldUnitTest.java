@@ -508,6 +508,66 @@ class RecipeScaffoldUnitTest {
     }
 
     @Test
+    void doctor_runsWithoutProject(@TempDir Path tmp) throws Exception {
+        ExecResult r = runScaffold(tmp, "doctor", "--no-network", "--directory", tmp.toString());
+        assertThat(r.exitCode).isZero();
+        assertThat(r.stdout)
+                .contains("recipe-scaffold version: " + RecipeScaffold.VERSION)
+                .contains("project: not found")
+                .contains("install path:")
+                .contains("latest upstream release: unavailable (--no-network)");
+    }
+
+    @Test
+    void doctor_readsDropfileVersionWhenInsideProject(@TempDir Path tmp) throws Exception {
+        Path project = newSyntheticProject(tmp);
+        ExecResult r = runScaffold(tmp, "doctor", "--no-network", "--directory", project.toString());
+        assertThat(r.exitCode).isZero();
+        assertThat(r.stdout)
+                .contains("scaffolded with v0.2.0")
+                .contains("Project was scaffolded with v0.2.0; CLI is at v" + RecipeScaffold.VERSION)
+                .contains("recipe-scaffold upgrade-skills")
+                .contains("recipe-scaffold upgrade-build-logic");
+    }
+
+    @Test
+    void doctor_reportsAllGreenWhenVersionsMatch(@TempDir Path tmp) throws Exception {
+        Path project = tmp.resolve("aligned");
+        Files.createDirectories(project);
+        Files.writeString(project.resolve(".recipe-scaffold.yml"), String.join("\n",
+                "recipeScaffoldVersion: \"" + RecipeScaffold.VERSION + "\"",
+                "group: \"io.example\"",
+                "artifact: \"demo\"",
+                "rootPackage: \"io.example.demo\"",
+                ""), StandardCharsets.UTF_8);
+        ExecResult r = runScaffold(tmp, "doctor", "--no-network", "--directory", project.toString());
+        assertThat(r.exitCode).isZero();
+        assertThat(r.stdout).contains("OK: nothing to do.");
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "v0.3.0,0.3.0",
+            "v1.2.3,1.2.3",
+            "0.3.0,0.3.0",
+            "v,''"
+    })
+    void stripV_removesLeadingV(String input, String expected) {
+        assertThat(RecipeScaffold.stripV(input)).isEqualTo(expected);
+    }
+
+    @Test
+    void parseTagName_extractsTagFromGithubReleaseJson() {
+        String json = "{\"tag_name\":\"v0.3.0\",\"name\":\"v0.3.0\",\"draft\":false}";
+        assertThat(RecipeScaffold.parseTagName(json)).isEqualTo("v0.3.0");
+    }
+
+    @Test
+    void parseTagName_returnsNullWhenAbsent() {
+        assertThat(RecipeScaffold.parseTagName("{\"message\":\"Not Found\"}")).isNull();
+    }
+
+    @Test
     void upgradeBuildLogic_replacesExistingTreeWithUpstream(@TempDir Path tmp) throws Exception {
         Path project = newSyntheticProject(tmp);
         Path projectBuildLogic = project.resolve("build-logic");
@@ -617,7 +677,8 @@ class RecipeScaffoldUnitTest {
         }
         return args.length > 0 && (
                 "add-recipe".equals(args[0]) || "verify-gates".equals(args[0])
-                        || "upgrade-skills".equals(args[0]) || "upgrade-build-logic".equals(args[0]));
+                        || "upgrade-skills".equals(args[0]) || "upgrade-build-logic".equals(args[0])
+                        || "doctor".equals(args[0]));
     }
 
     private static String[] withDirectory(String[] args, Path dir) {
