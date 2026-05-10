@@ -11,14 +11,14 @@ Most project templates do one thing: stamp out a starting point. `cookiecutter`,
 
 OpenRewrite recipe libraries amplify the cost. The interesting moving parts are not in the recipe code; they are in the gate machinery — a smokeTest matrix scaffolding `/tmp` projects per cell, an `integrationTest` source set pinning a JDK 21 launcher to keep `withToolingApi()` happy on JDK 25 outer toolchains, a publish-gate wiring `publishAndReleaseToMavenCentral` to depend on `smokeTest`, the Refaster annotation processor's classpath quirks. When any of these breaks, the fix has to land in every consumer that ever ran the template, by hand.
 
-`recipe-scaffold` keeps the template and the upgrade tool as the same binary. The dropfile (`.recipe-scaffold.yml`) `init` writes is a contract: every later subcommand reads it back so the project's identity is decided once. `upgrade-skills` and (queued) `upgrade-build-logic` close the loop by re-syncing the vendored pieces — agent skills today, the convention plugin tomorrow — without churning the consumer's `build.gradle.kts`.
+`recipe-scaffold` keeps the template and the upgrade tool as the same binary. The dropfile (`.recipe-scaffold.yml`) `init` writes is a contract: every later subcommand reads it back so the project's identity is decided once. `upgrade-skills` and `upgrade-build-logic` close the loop by re-syncing the vendored pieces — agent skills and the convention plugin — without churning the consumer's `build.gradle.kts`. `doctor` reports drift and prints the right upgrade command for the install path.
 
 ## JBang and picocli
 
 The CLI is one Java file at [`jbang/RecipeScaffold.java`](./jbang/RecipeScaffold.java). Two pieces of plumbing make that practical:
 
 - **[JBang](https://www.jbang.dev)** is a launcher for self-describing Java scripts. The first three lines of the file are `///usr/bin/env jbang`, `//JAVA 17+`, and `//DEPS info.picocli:picocli:4.7.7`. JBang reads those, downloads the dependency, picks a JDK that matches, compiles, runs `main`, and caches the compiled jar. Users invoke the script via a JBang catalog reference (`jbang recipe-scaffold@fiftiesHousewife/recipe-scaffold`) without cloning anything.
-- **[picocli](https://picocli.info)** turns the file into a real CLI: `@Command` declares each subcommand, `@Option` declares its flags, `@Mixin` shares `--directory` across `add-recipe`/`verify-gates`/`upgrade-skills`. The same compiled bytecode runs as a JBang script, a `./gradlew run`, an `installDist` shell launcher, or a fat jar — picocli handles all four equivalently.
+- **[picocli](https://picocli.info)** turns the file into a real CLI: `@Command` declares each subcommand, `@Option` declares its flags, `@Mixin` shares `--directory` across the post-`init` subcommands. The same compiled bytecode runs as a JBang script, a `./gradlew run`, an `installDist` shell launcher, or a fat jar — picocli handles all four equivalently.
 
 Compared with `cookiecutter` (Python, language-substitution only), `yeoman` (Node, generator scripts), or `maven-archetype-plugin` (a Maven plugin, awkward to extend with non-init subcommands), this combination gives one launcher, one binary, and a single place to host post-init upgrade subcommands.
 
@@ -95,21 +95,9 @@ The `app setup` form drops `jbang` into `~/.jbang/bin/` and adds it to `PATH` in
 
 ### Upgrading recipe-scaffold itself
 
-Each install path has its own upgrade trigger. `recipe-scaffold --version` reports the running CLI version; compare against [the latest release](https://github.com/fiftiesHousewife/recipe-scaffold/releases) to know whether you are behind.
+Run [`recipe-scaffold doctor`](#doctor) — it reports the running CLI version, compares against the latest upstream tag, detects which install path you used, and prints the right upgrade command. Offline? Compare `recipe-scaffold --version` against [releases on GitHub](https://github.com/fiftiesHousewife/recipe-scaffold/releases) by hand and re-run the install command for your path.
 
-| Install path | Upgrade command |
-| --- | --- |
-| JBang catalog (tracks `main`) | `jbang cache clear && jbang recipe-scaffold@fiftiesHousewife/recipe-scaffold --version` |
-| JBang catalog pinned to a tag | Change the tag in your invocations (`@…/v0.3.0` → `@…/v0.4.0`). |
-| `jbang app install` | `jbang app install --force recipe-scaffold@fiftiesHousewife/recipe-scaffold` |
-| JBang direct from a clone | `git pull` |
-| `./gradlew run` from a clone | `git pull` (Gradle re-runs from sources next invocation) |
-| `./gradlew installDist` | `git pull && ./gradlew installDist` |
-| Fat jar | `git pull && ./gradlew jar` |
-
-A queued `recipe-scaffold doctor` subcommand (see [`BACKLOG.md`](./BACKLOG.md)) will collapse this table by detecting the install path and printing the right command.
-
-After upgrading the CLI itself, **existing scaffolded projects** still need to refresh their copies of `template/.claude/skills/` (run `recipe-scaffold upgrade-skills`) and — once `upgrade-build-logic` ships — their copy of `template/build-logic/`. The migration recipe in the latest [CHANGELOG entry](./CHANGELOG.md) covers the manual `curl` until then.
+After upgrading the CLI, **existing scaffolded projects** still need to refresh their vendored pieces: run `recipe-scaffold upgrade-skills` and `recipe-scaffold upgrade-build-logic` (or `doctor` to see at a glance whether you are behind).
 
 ## Subcommands
 
@@ -348,14 +336,7 @@ A `pre-push` skill at `.claude/skills/pre-push/SKILL.md` lists the exact local c
 
 ## Fallback paths
 
-### Fat jar (no JBang)
-
-```bash
-./gradlew jar
-java -jar build/libs/recipe-scaffold.jar init …
-```
-
-Bundles picocli; ~430 KB. Same CLI surface as the JBang form. Fine for CI images that don't ship JBang.
+The "Five ways" table covers the supported paths; this section drills into the two that need extra context.
 
 ### Bash + sed (no JDK at scaffold time)
 
@@ -387,7 +368,7 @@ java -cp /tmp/recipe-scaffold-build:"$PICOCLI" recipescaffold.RecipeScaffold ini
 ├── settings.gradle.kts
 ├── gradle/                       # libs.versions.toml + wrapper
 ├── gradlew, gradlew.bat
-├── jbang/RecipeScaffold.java     # picocli — the four subcommands
+├── jbang/RecipeScaffold.java     # picocli — six subcommands
 ├── src/test/java/recipescaffold/ # in-repo TestKit harness
 ├── tests/ci-smoke.sh             # bash scaffold-and-build verifier
 ├── template/                     # everything below this is what `init` scaffolds into the user's project
