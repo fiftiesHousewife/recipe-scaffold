@@ -53,6 +53,7 @@ Two distinct dialects share the `{{name}}` syntax.
 | `{{authorId}}`, `{{authorName}}`, `{{authorEmail}}` | POM developer block |
 | `{{javaTargetMain}}`, `{{javaTargetTests}}` | `release` for compileJava and compileTestJava |
 | `{{rewritePluginVersion}}` | Snippet versions in template's docs |
+| `{{recipescaffoldVersion}}` | The CLI version that scaffolded the project. Burned into `template/CLAUDE.md` at init time so a Claude Code session can drift-check against the dropfile. |
 | `__ROOT_PACKAGE__` | Literal directory marker — renamed at scaffold time |
 
 **Snippet-time placeholders** — substituted by `add-recipe`, only inside `template/snippets/*.template`:

@@ -68,6 +68,7 @@ find "$OUT" \( -type d -name snippets -prune \) -o \
         -e "s|{{javaTargetMain}}|$JAVA_TARGET_MAIN|g" \
         -e "s|{{javaTargetTests}}|$JAVA_TARGET_TESTS|g" \
         -e "s|{{rewritePluginVersion}}|$REWRITE_PLUGIN_VERSION|g" \
+        -e "s|{{recipescaffoldVersion}}|0.3.0|g" \
         -e "s|__ROOT_PACKAGE__|$ROOT_PACKAGE|g"
 
 # Sanity check: any unsubstituted placeholders remaining? Match our `{{name}}`

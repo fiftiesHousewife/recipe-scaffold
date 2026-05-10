@@ -15,6 +15,10 @@ Four committed project skills live at `.claude/skills/`. Their bodies are agent-
 
 The skill files in `.claude/skills/` are version-controlled — treat them as part of the project, not personal tool config. When the upstream scaffolder improves a skill, run `recipescaffold upgrade-skills` (or pull the change in by hand).
 
+## Drift check at session start
+
+This project was scaffolded by `recipescaffold` `v{{recipescaffoldVersion}}`. On your first action in a session, read the `recipescaffoldVersion` field of `.recipescaffold.yml` at the project root and compare it against the version above. If they differ, surface a one-line note recommending `recipescaffold upgrade-skills` (and `recipescaffold upgrade-build-logic` once it ships). No network call required — the comparison is purely local. Do not block work on the drift; just flag it once and move on.
+
 ## Notes on collaboration
 
 - Don't duplicate skill content into this file or into commit messages — refer to the skill and let the user see the same content.

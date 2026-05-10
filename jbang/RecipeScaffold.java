@@ -244,6 +244,7 @@ public class RecipeScaffold implements Runnable {
             repl.put("{{javaTargetMain}}", javaTargetMain);
             repl.put("{{javaTargetTests}}", javaTargetTests);
             repl.put("{{rewritePluginVersion}}", rewritePluginVersion);
+            repl.put("{{recipescaffoldVersion}}", VERSION);
             repl.put(MARKER_DIR, rootPackage);
             return repl;
         }

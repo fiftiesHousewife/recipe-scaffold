@@ -6,6 +6,30 @@ Scaffold an [OpenRewrite](https://docs.openrewrite.org) recipe project with mode
 
 Repo: <https://github.com/fiftiesHousewife/recipescaffold>
 
+## Why this exists
+
+Most project templates do one thing well: stamp out a starting point. The `cookiecutter`-shape, `yeoman`-shape, and Maven-archetype-shape tools all share the same arc — fork the template, substitute a few placeholders, hand the result to the user, and walk away. That's fine for the first day. By month three, every scaffolded project is carrying its own private divergence of the build script: someone bumped a plugin, someone else dropped a workaround for a transitive-dep CVE, three people copy-pasted a fix from Stack Overflow into their `build.gradle.kts` and never told the others. The template that produced them is now ahead by a year, behind by a year, or both at once. There is no upgrade path, because the template was never designed to *push* — only to *project*.
+
+OpenRewrite recipe libraries make this drift especially painful. The interesting moving parts are not in the recipe code; they're in the gate machinery — the smokeTest matrix that scaffolds /tmp projects per cell, the integrationTest source set that pins a JDK 21 launcher to keep `withToolingApi()` happy on JDK 25 outer toolchains, the publish-gate that wires `publishAndReleaseToMavenCentral` to depend on `smokeTest`, the Refaster annotation processor classpath quirks. When any of these breaks for one consumer, the fix has to land in *every* consumer that ever ran the template, by hand.
+
+`recipescaffold` is the template plus an upgrade story. The same single-file `picocli` script that scaffolds a project ships subcommands that **maintain** what it scaffolded:
+
+- `add-recipe` reads back the dropfile (`.recipescaffold.yml`) the original `init` left at the project root, so every new recipe respects the same group/package/conventions chosen on day one.
+- `upgrade-skills` re-syncs the bundled `.claude/skills/` from upstream so an agent's view of "how to author a recipe" stays current.
+- `verify-gates` runs the full `check integrationTest smokeTest` chain so a local pre-publish check matches what CI will see.
+- `recipe-library` lives in `template/build-logic/` as a vendored Gradle convention plugin — when a downstream consumer hits a build-logic bug (and they will), the fix lands upstream once, and a future `upgrade-build-logic` subcommand re-syncs the plugin into existing projects without churning their `build.gradle.kts`.
+
+The result is a template you can come back to. The CLI is the upgrade tool. The tests in this repo gate the upgrade tool the same way the consumer's `check` gates their recipes.
+
+## JBang and picocli, briefly
+
+The CLI is a single Java file at [`jbang/RecipeScaffold.java`](./jbang/RecipeScaffold.java). Two pieces of plumbing make that practical:
+
+- **[JBang](https://www.jbang.dev)** is a launcher for self-describing Java scripts. The first three lines of the file are `///usr/bin/env jbang`, `//JAVA 17+`, and `//DEPS info.picocli:picocli:4.7.7`. JBang reads those, downloads the dep, picks a JDK that matches the requirement, compiles the file, runs `main`, and caches the compiled jar so subsequent invocations are sub-second. There is no Gradle, no Maven, no install script — `jbang <file>` is the whole interface. This is what lets `recipescaffold` ship as a *file* rather than a *project*: users invoke it via a JBang catalog ref (`jbang recipescaffold@fiftiesHousewife/recipescaffold`) without ever cloning anything.
+- **[picocli](https://picocli.info)** turns that single file into a real CLI. `@Command` declares a subcommand; `@Option` declares its flags; `@Mixin` lets us share `--directory` across `add-recipe`/`verify-gates`/`upgrade-skills` without copy-paste; `Callable<Integer>` gives each subcommand a clean exit-code contract. The same compiled bytecode runs equally well as a JBang script, a `./gradlew run`, an `installDist` shell launcher, or a fat jar — picocli does not care, and that's how this README ends up with five distribution paths for the same code.
+
+Compared with `cookiecutter` (Python, language-substitution only), `yeoman` (Node, generator scripts), or `maven-archetype-plugin` (Maven plugin, hard to extend with non-init subcommands), JBang+picocli gives one launcher, one binary, and a natural place to host post-init upgrade subcommands. That's the wedge.
+
 ## Five ways to run it
 
 The CLI is a [picocli](https://picocli.info) script at `jbang/RecipeScaffold.java`. Same code, five distribution paths — pick whichever your environment makes cheapest:
@@ -33,6 +57,24 @@ curl -Ls https://sh.jbang.dev | bash -s - app setup    # POSIX universal
 The `app setup` form drops `jbang` into `~/.jbang/bin/`, prepends it to your `PATH` in shell-rc files, and works without sudo.
 
 The `./gradlew downloadJbang` path is for environments that block `brew`, `curl | bash`, or other package managers but already have the JDK + Gradle wrapper on disk. The task downloads the official JBang release zip from [GitHub](https://github.com/jbangdev/jbang/releases) (pinned in `gradle/libs.versions.toml`) and extracts it under `build/jbang/jbang-<version>/`. Use the launcher as `build/jbang/jbang-<version>/bin/jbang …`, or add that `bin/` to your `PATH` for a permanent shortcut. HTTPS provides transport integrity; if you need to verify the archive against the upstream SHA-256, fetch `<asset>.sha256` from the same release page and compare.
+
+### Upgrading recipescaffold itself
+
+Each install path has its own upgrade trigger. `recipescaffold --version` reports the running CLI's version; compare against [the latest release](https://github.com/fiftiesHousewife/recipescaffold/releases) to know whether you're behind.
+
+| Install path | Upgrade command |
+| --- | --- |
+| **JBang catalog** (tracks `main`) | `jbang cache clear && jbang recipescaffold@fiftiesHousewife/recipescaffold --version` to force a re-fetch + recompile of the latest `main`. |
+| **JBang catalog pinned to a tag** (`@…/v0.3.0`) | Change the tag (`@…/v0.4.0`) in your invocations. |
+| **`jbang app install`** (gives you a `recipescaffold` shortcut) | `jbang app install --force recipescaffold@fiftiesHousewife/recipescaffold` reinstalls and overwrites the launcher script. |
+| **JBang direct from a clone** | `git pull` in the recipescaffold checkout. |
+| **`./gradlew run` from a clone** | `git pull` + Gradle re-runs from sources on next invocation. |
+| **`./gradlew installDist`** | `git pull && ./gradlew installDist` to rebuild `build/install/recipescaffold/`. |
+| **Fat jar** | `git pull && ./gradlew jar` to rebuild `build/libs/recipescaffold.jar`. |
+
+A planned `recipescaffold doctor` subcommand (queued in [BACKLOG.md](./BACKLOG.md)) will compare the running CLI's version against the project's `recipescaffoldVersion` dropfile entry and print the right command for the install path it detects. Until that ships, the table above is the manual procedure.
+
+After upgrading the CLI itself, **existing scaffolded projects** still need to refresh their copies of `template/.claude/skills/` (run `recipescaffold upgrade-skills`) and — once the `upgrade-build-logic` subcommand ships — their copy of `template/build-logic/`. The migration recipe in the [v0.3.0 CHANGELOG entry](./CHANGELOG.md) covers the manual `curl` for `build-logic/` until then.
 
 ### What JBang gives you
 

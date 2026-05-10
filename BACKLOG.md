@@ -74,6 +74,7 @@ The B-numbered items track [`JBANG_TEMPLATE_PLAN.md`](./JBANG_TEMPLATE_PLAN.md) 
 ## Queued for next release
 
 - **`upgrade-build-logic` subcommand** — modelled on `upgrade-skills`, but refreshes `build-logic/src/main/kotlin/recipe-library.gradle.kts` (and the matching `gradle/libs.versions.toml` additions) from the upstream template. Closes the gap exposed at the `v0.3.0` cut: the convention plugin is vendored into each scaffolded project, so existing consumers do not pick up upstream fixes by bumping a version pin — they have to manually copy the file. Same shape as `upgrade-skills`: walks upward to find `.recipescaffold.yml`, accepts `--directory` and `--template-dir`, supports `--dry-run`. ~30 LoC + test.
+- **`doctor` subcommand** — drift + upgrade-path advisor. Reads the running CLI's `RecipeScaffold.VERSION`, the project dropfile's `recipescaffoldVersion`, and the latest GitHub release tag (single API call, cached locally). Prints which install path the CLI is running from (heuristic: presence of `~/.jbang/bin/recipescaffold`, JBang catalog cache, `build/install/recipescaffold/`, etc.) and the exact upgrade command for that path. Also flags drift between the dropfile version and the running CLI so a project that was scaffolded with `v0.2.0` and is being driven by `v0.4.0` knows to run `upgrade-skills` + `upgrade-build-logic`. Replaces the manual upgrade table in the README. ~80 LoC + test.
 
 ## Active
 

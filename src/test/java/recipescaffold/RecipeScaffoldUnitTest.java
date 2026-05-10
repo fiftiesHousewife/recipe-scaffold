@@ -120,6 +120,7 @@ class RecipeScaffoldUnitTest {
                 .containsEntry("{{javaTargetMain}}", "17")
                 .containsEntry("{{javaTargetTests}}", "25")
                 .containsEntry("{{rewritePluginVersion}}", "7.30.0")
+                .containsEntry("{{recipescaffoldVersion}}", RecipeScaffold.VERSION)
                 .containsEntry(RecipeScaffold.MARKER_DIR, "io.github.acme");
     }
 
