@@ -9,7 +9,6 @@
 // place to land.
 
 import com.github.benmanes.gradle.versions.updates.DependencyUpdatesTask
-import com.github.spotbugs.snom.SpotBugsTask
 import groovy.json.JsonSlurper
 
 plugins {
@@ -291,10 +290,11 @@ spotbugs {
     reportLevel.set(com.github.spotbugs.snom.Confidence.MEDIUM)
 }
 
-tasks.withType<SpotBugsTask>().configureEach {
-    reports.create("html") { required.set(true) }
-    reports.create("xml") { required.set(true) }
-}
+// SpotBugs report enablement intentionally omitted: when a downstream plugin
+// (e.g. cleancode) already wires xml/html reports on each SpotBugsTask, doing
+// it again here triggers "Cannot add a SpotBugsReport with name 'xml'" during
+// task realization. Defer to whatever the consuming project (or its other
+// plugins) configures.
 
 // ---- Stale-dependency gate -------------------------------------------------
 // Configures `dependencyUpdates` to ignore prerelease candidates so we don't
