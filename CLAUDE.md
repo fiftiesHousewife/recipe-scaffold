@@ -11,7 +11,7 @@ Vendor-neutral guidance — repo layout, placeholder dialects, conventions, how 
 
 ## Skills available in this session
 
-The four recipe-authoring skills (`new-gradle-project`, `new-recipe`, `recipe-testing`, `smoke-test`) plus the ten clean-code skills. The clean-code skills aren't enforced by build tools here (the template strips the cleancode plugin) — apply them on judgment, not because tooling demands it.
+The four recipe-authoring skills (`new-gradle-project`, `new-recipe`, `recipe-testing`, `smoke-test`) plus the ten clean-code skills (catalogued in [`.claude/skills/SKILLS.md`](./.claude/skills/SKILLS.md)) and the repo-only `pre-push` skill listing the local equivalents of every CI job. The clean-code skills aren't enforced by build tools here (the template strips the cleancode plugin) — apply them on judgment, not because tooling demands it.
 
 ## Notes on collaboration
 

@@ -35,8 +35,7 @@ The runtime classpath ships parsers for every language you are likely to rewrite
 | Language / file type | Parser artifact | Typical use |
 | --- | --- | --- |
 | Java (8, 11, 17, 21, 25) | [`rewrite-java`](https://docs.openrewrite.org/concepts-and-explanations/lst-examples/java-lst-examples) + per-version runtimes | Application code |
-| Groovy | [`rewrite-groovy`](https://github.com/openrewrite/rewrite/tree/main/rewrite-groovy) | Standalone `.groovy` files |
-| Gradle build scripts | [`rewrite-gradle`](https://docs.openrewrite.org/recipes/gradle) | Both Kotlin DSL (`.gradle.kts`) and Groovy DSL (`.gradle`); Groovy DSL is parsed via `rewrite-groovy` |
+| Gradle build scripts | [`rewrite-gradle`](https://docs.openrewrite.org/recipes/gradle) | Both Kotlin DSL (`.gradle.kts`) and Groovy DSL (`.gradle`); the Groovy parser comes in transitively for the build-script case only |
 | TOML | [`rewrite-toml`](https://docs.openrewrite.org/recipes/toml) | Version catalogs (`gradle/libs.versions.toml`), `Cargo.toml`, etc. |
 | Properties | [`rewrite-properties`](https://docs.openrewrite.org/recipes/properties) | `gradle.properties`, Spring config |
 | YAML | [`rewrite-yaml`](https://docs.openrewrite.org/recipes/yaml) (transitive via the recipe BOM) | CI workflows, k8s manifests, Spring config |
@@ -52,7 +51,7 @@ The `smokeTest` matrix scaffolds throwaway `/tmp` projects per cell and runs the
 | --- | --- |
 | Single-module Kotlin DSL (`build.gradle.kts`) | covered by `smokeTest` |
 | Multi-module Kotlin DSL | covered by `smokeTest` (project-shape matrix cell A) |
-| Single-module Groovy DSL (`build.gradle`) | parser included; add a smoke cell when you ship a Groovy-aware recipe |
+| Single-module Groovy DSL (`build.gradle`) | parser included via `rewrite-gradle`; add a smoke cell when you ship a recipe that targets Groovy DSL build scripts |
 
 ## Development
 

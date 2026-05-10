@@ -17,7 +17,7 @@ The skill files in `.claude/skills/` are version-controlled — treat them as pa
 
 ## Drift check at session start
 
-This project was scaffolded by `recipe-scaffold` `v{{recipeScaffoldVersion}}`. On your first action in a session, read the `recipeScaffoldVersion` field of `.recipe-scaffold.yml` at the project root and compare it against the version above. If they differ, surface a one-line note recommending `recipe-scaffold upgrade-skills` (and `recipe-scaffold upgrade-build-logic` once it ships). No network call required — the comparison is purely local. Do not block work on the drift; just flag it once and move on.
+This project was scaffolded by `recipe-scaffold` `v{{recipeScaffoldVersion}}`. On your first action in a session, read the `recipeScaffoldVersion` field of `.recipe-scaffold.yml` at the project root and compare it against the version above. If they differ, surface a one-line note recommending `recipe-scaffold upgrade-skills` and `recipe-scaffold upgrade-build-logic` (or `recipe-scaffold doctor` for an automated drift report). No network call required — the comparison is purely local. Do not block work on the drift; just flag it once and move on.
 
 ## Notes on collaboration
 

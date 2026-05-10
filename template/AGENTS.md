@@ -25,7 +25,7 @@ src/
 Key files at repo root:
 
 - `build.gradle.kts` + `gradle/libs.versions.toml` — build + version pinning
-- `SMOKE_TEST.md` — the pre-release release gate
+- `SMOKE_TEST.md` — post-publish Maven Central round-trip cell (the pre-publish gate is `./gradlew smokeTest`)
 - `BACKLOG.md` — Shipped / Queued / Active / Parked
 - `README.md` — user-facing
 
@@ -34,13 +34,14 @@ Key files at repo root:
 Before tagging and pushing a new version, run these in order. Skipping a step is how regressions ship.
 
 1. **Quality gates**: `./gradlew check` — must be green (tests, JaCoCo report, integrationTest).
-2. **Smoke tests**: `./gradlew smokeTest` — runs the full project-shape matrix end-to-end. Backed up by `SMOKE_TEST.md` for the manual cells the runner can't reach.
+2. **Smoke tests**: `./gradlew smokeTest` — runs the full project-shape matrix end-to-end. Hard `dependsOn` of `publishAndReleaseToMavenCentral`, so step 7 cannot skip it.
 3. **Update `README.md`** if any recipe surface changed — new recipe, new option, new supported project shape.
 4. **Update `BACKLOG.md`** — move whatever's shipping out of Active or Queued-for-next-release into Shipped with a new version heading.
 5. **Bump `version` in `build.gradle.kts`** — `x.y` → `x.(y+1)` for additive changes, `(x+1).0` for source-incompatible.
 6. **Commit + push** — one release commit is fine if the per-feature history is good. `git add` specific files, don't `-A`.
 7. **Publish**: `./gradlew publishAndReleaseToMavenCentral`. The `smokeTest` task is a hard `dependsOn` so the gate is structural, not operator discipline.
 8. **Tag**: `git tag v<version> && git push origin v<version>`.
+9. **Post-publish round-trip**: wait ~10 minutes for Maven Central propagation, then run the cell in [`SMOKE_TEST.md`](./SMOKE_TEST.md) to confirm the published GAV resolves from Central (not `mavenLocal`).
 
 ## Coding standards (not covered by tools)
 

@@ -27,11 +27,6 @@ openrewrite-java21 = { module = "org.openrewrite:rewrite-java-21" }
 openrewrite-java25 = { module = "org.openrewrite:rewrite-java-25" }
 openrewrite-gradle = { module = "org.openrewrite:rewrite-gradle" }
 openrewrite-gradle-tooling-api = { module = "org.openrewrite.gradle.tooling:model" }
-# Groovy parser — needed for recipes that operate on `.groovy` files directly,
-# and pulled in transitively by `rewrite-gradle` for `.gradle` (Groovy DSL)
-# build scripts. Declaring it explicitly makes the dependency obvious and lets
-# recipes target Groovy source files outside of Gradle scripts.
-openrewrite-groovy = { module = "org.openrewrite:rewrite-groovy" }
 openrewrite-test = { module = "org.openrewrite:rewrite-test" }
 # Refaster recipe support — annotation processor generates the Recipe class
 # from @BeforeTemplate/@AfterTemplate methods. Errorprone provides the

@@ -85,6 +85,7 @@ B-numbered and A-numbered items below are historical labels from a prior plannin
 
 ## Queued for next release
 
+- **Tag-driven post-publish Central round-trip CI job** in `template/.github/workflows/release.yml`. Wait ~10 minutes for Maven Central propagation after `publishAndReleaseToMavenCentral` succeeds, scaffold a throwaway `/tmp` consumer project, depend on the just-published GAV from Central (not `mavenLocal`), run `./gradlew rewriteResolveDependencies`. Retires the only cell currently in `template/SMOKE_TEST.md`. ~40 lines of YAML.
 - **Submit `recipe-scaffold` to the public JBang catalog** — PR an entry into [`jbangdev/jbang-catalog`](https://github.com/jbangdev/jbang-catalog)'s `jbang-catalog.json` referencing `fiftiesHousewife/recipe-scaffold`, so the alias is discoverable via `jbang catalog list jbangdev` and reachable as `recipe-scaffold@jbangdev`. Direct reference (`recipe-scaffold@fiftiesHousewife/recipe-scaffold`) already works; this is purely a discovery boost. Best done after a few tagged releases have settled; v0.3.0 is sufficient.
 - **Publish `recipe-scaffold` to Maven Central** — only needed if consumers want to drop the JBang dependency. Today the Gradle task wrappers shell out to `jbang` on PATH; switching them to embedded `JavaExec` against a `recipeScaffold` configuration would require a published artifact. Same task names + flags so the migration would be invisible to consumers. Reopen on demand.
 

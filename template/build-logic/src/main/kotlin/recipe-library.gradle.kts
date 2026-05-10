@@ -39,7 +39,6 @@ dependencies {
     "implementation"(lib("openrewrite-java"))
     "implementation"(lib("openrewrite-toml"))
     "implementation"(lib("openrewrite-gradle"))
-    "implementation"(lib("openrewrite-groovy"))
     "runtimeOnly"(lib("openrewrite-java8"))
     "runtimeOnly"(lib("openrewrite-java11"))
     "runtimeOnly"(lib("openrewrite-java17"))

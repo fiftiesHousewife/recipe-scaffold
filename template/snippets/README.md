@@ -4,11 +4,11 @@ Source-of-truth fragments for the `add-recipe` JBang subcommand. They get copied
 
 ## Placeholder dialect
 
-These templates use a deliberately small placeholder set, distinct from the project-wide `init`-time placeholders documented in the repo CLAUDE.md:
+These templates use a deliberately small placeholder set, distinct from the project-wide `init`-time placeholders documented in the repo `AGENTS.md`:
 
 | Placeholder | Meaning |
 | --- | --- |
-| `{{package}}` | Java package the new recipe (or its test) lives in. Default: `<rootPackage>.recipes`. |
+| `{{package}}` | Java package the new recipe (or its test) lives in. Default: `recipePackage` from the dropfile if set, else `<rootPackage>.recipes`. `--package=` overrides both. |
 | `{{recipeName}}` | Java class name (PascalCase, e.g. `RemoveStaleSuppression`) |
 | `{{recipeDisplayName}}` | Short human-readable name returned by `getDisplayName()` |
 | `{{recipeDescription}}` | One-sentence description returned by `getDescription()` |
