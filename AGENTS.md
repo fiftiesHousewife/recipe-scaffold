@@ -105,6 +105,23 @@ jbang <path-to-recipescaffold>/jbang/RecipeScaffold.java add-recipe --name Remov
 
 The harness is the in-repo equivalent of Maven's `archetype:integration-test` and runs as a parallel CI job alongside `bash-scaffold` and `jbang-scaffold`. Some sandboxed environments restrict network access for deeply-nested Gradle daemons; in those cases CI is the authoritative gate.
 
+### Reproducing CI failures locally
+
+The harness forwards the inner Gradle's stdout/stderr (`forwardOutput()`) and the root build has `testLogging.showStandardStreams = true`, so a failed `./gradlew test` prints the inner build's full log inline. Two extra knobs:
+
+- **`HARNESS_OFFLINE=1`** — appends `--offline` to the inner `GradleRunner` so a warm cache surfaces real build errors instead of `UnknownHostException` when the outer environment blocks DNS for forked daemons. Run once online to populate the cache, then re-run with `HARNESS_OFFLINE=1 ./gradlew test --rerun-tasks` for fast offline iteration.
+- **`-Dkotlin.compiler.execution.strategy=in-process`** — already passed to the inner runner so the Kotlin compile daemon does not try to write under `~/Library/Application Support/kotlin/` (which some sandboxes block). No action needed.
+
+Pulling CI logs without `gh`:
+
+```bash
+curl -fsSL -H "Authorization: Bearer $GITHUB_TOKEN" \
+  -L "https://api.github.com/repos/<owner>/<repo>/actions/jobs/<job-id>/logs" \
+  -o /tmp/job.log
+```
+
+The job id is in `https://api.github.com/repos/<owner>/<repo>/actions/runs/<run-id>/jobs`.
+
 ## Conventions
 
 - **No emojis in source, docs, or commits** unless the user explicitly asks.
