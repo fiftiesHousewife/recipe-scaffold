@@ -16,6 +16,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
   - `recipeLibrary.spotbugsStrict=true` makes any SpotBugs finding fail `check`.
   - `recipeLibrary.failOnStaleDependencies=true` wires `verifyDependencies` (parses the ben-manes JSON report) into `check`. Prereleases (alpha/beta/rc/milestone/preview/snapshot) are filtered out so the gate does not thrash.
 - Picocli `@Mixin` `ProjectDirectoryMixin` collapses the duplicated `--directory` option across `add-recipe`, `verify-gates`, `upgrade-skills`.
+- Optional `recipePackage:` dropfile key. `add-recipe` reads it as the project-level default for the recipe's Java package, sitting between the `--package=` CLI flag (highest priority) and the built-in fallback to `<rootPackage>.recipes` (lowest). Lets a project pin recipes to a non-default location (e.g. `<rootPackage>.cleanup`) without passing `--package=` on every call. Init does not write the key; presence is opt-in. Reported by clean-logging.
 - `./gradlew downloadJbang` task at repo root downloads the pinned JBang release zip from GitHub for environments that block `brew`/`choco`/`sdk`/`curl | bash`. Installs under `build/jbang/jbang-<version>/`.
 - `javax.annotation:javax.annotation-api:1.3.2` `compileOnly` in the convention plugin so Refaster-generated `<Name>Recipes.java` compiles on JDK 11+.
 - `pre-push` skill at `.claude/skills/pre-push/SKILL.md` listing the local equivalents of every CI job (actionlint+shellcheck, `./gradlew test`, `tests/ci-smoke.sh`).

@@ -384,6 +384,47 @@ class RecipeScaffoldUnitTest {
     }
 
     @Test
+    void addRecipe_honoursRecipePackageFromDropfile(@TempDir Path tmp) throws Exception {
+        Path project = newSyntheticProject(tmp);
+        Files.writeString(project.resolve(".recipescaffold.yml"), String.join("\n",
+                "recipescaffoldVersion: \"0.3.0\"",
+                "group: \"io.example\"",
+                "artifact: \"demo\"",
+                "rootPackage: \"io.example.demo\"",
+                "recipePackage: \"io.example.demo.cleanup\"",
+                "javaTargetMain: \"17\"",
+                "javaTargetTests: \"25\"",
+                ""
+        ), StandardCharsets.UTF_8);
+
+        ExecResult r = runScaffold(project, "add-recipe", "--name", "FooBar");
+
+        assertThat(r.exitCode).isZero();
+        assertThat(project.resolve("src/main/java/io/example/demo/cleanup/FooBar.java")).exists();
+        assertThat(project.resolve("src/main/java/io/example/demo/recipes/FooBar.java")).doesNotExist();
+        String body = Files.readString(project.resolve("src/main/java/io/example/demo/cleanup/FooBar.java"));
+        assertThat(body).contains("package io.example.demo.cleanup;");
+    }
+
+    @Test
+    void addRecipe_cliPackageOverridesDropfileRecipePackage(@TempDir Path tmp) throws Exception {
+        Path project = newSyntheticProject(tmp);
+        Files.writeString(project.resolve(".recipescaffold.yml"), String.join("\n",
+                "rootPackage: \"io.example.demo\"",
+                "recipePackage: \"io.example.demo.cleanup\"",
+                ""
+        ), StandardCharsets.UTF_8);
+
+        ExecResult r = runScaffold(project, "add-recipe",
+                "--name", "FooBar",
+                "--package", "io.example.demo.adhoc");
+
+        assertThat(r.exitCode).isZero();
+        assertThat(project.resolve("src/main/java/io/example/demo/adhoc/FooBar.java")).exists();
+        assertThat(project.resolve("src/main/java/io/example/demo/cleanup/FooBar.java")).doesNotExist();
+    }
+
+    @Test
     void addRecipe_refusesOverwriteWithoutForce(@TempDir Path tmp) throws Exception {
         Path project = newSyntheticProject(tmp);
         assertThat(runScaffold(project, "add-recipe", "--name", "Foo").exitCode).isZero();

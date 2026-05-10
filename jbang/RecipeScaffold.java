@@ -290,8 +290,8 @@ public class RecipeScaffold implements Runnable {
         private String description;
 
         @Option(names = "--package",
-                description = "Override the recipe's package. Default: <rootPackage>.recipes from "
-                        + DROPFILE + ".")
+                description = "Override the recipe's package. Default: `recipePackage` from "
+                        + DROPFILE + " if set, else <rootPackage>.recipes.")
         private String packageOverride;
 
         @Mixin
@@ -369,7 +369,14 @@ public class RecipeScaffold implements Runnable {
                 return 3;
             }
 
-            String pkg = packageOverride != null ? packageOverride : dropfileRootPackage + ".recipes";
+            // Fallback chain for the recipe package: --package= CLI flag wins;
+            // then `recipePackage:` in the dropfile (project-level override);
+            // then the default `<rootPackage>.recipes`.
+            String dropfileRecipePackage = dropfile.get("recipePackage");
+            String defaultRecipePackage = (dropfileRecipePackage != null && !dropfileRecipePackage.isEmpty())
+                    ? dropfileRecipePackage
+                    : dropfileRootPackage + ".recipes";
+            String pkg = packageOverride != null ? packageOverride : defaultRecipePackage;
             Path snippetsDir = projectRoot.resolve("snippets");
             if (!Files.isDirectory(snippetsDir)) {
                 System.err.println("FAIL: snippets dir not found at " + snippetsDir);
