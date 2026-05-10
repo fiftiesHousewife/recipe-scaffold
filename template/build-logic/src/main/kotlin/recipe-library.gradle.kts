@@ -178,9 +178,22 @@ val integrationTest = tasks.register<Test>("integrationTest") {
     useJUnitPlatform()
     maxHeapSize = "2g"
 
+    val jdk21Home = javaToolchains.launcherFor {
+        languageVersion.set(JavaLanguageVersion.of(21))
+    }.map { it.metadata.installationPath.asFile.absolutePath }
+
     javaLauncher.set(javaToolchains.launcherFor {
         languageVersion.set(JavaLanguageVersion.of(21))
     })
+
+    // The fork runs on JDK 21 via the launcher above, but the embedded Gradle
+    // 8.14.3 daemon spawned by withToolingApi() reads org.gradle.java.home
+    // from the calling JVM's system properties to decide which JDK to start
+    // its daemon on. Without this, it inherits the outer build's toolchain
+    // (e.g. JDK 25) and v69 system classes blow up its bundled Groovy/ASM.
+    doFirst {
+        systemProperty("org.gradle.java.home", jdk21Home.get())
+    }
 
     testClassesDirs = sourceSets["integrationTest"].output.classesDirs
     classpath = sourceSets["integrationTest"].runtimeClasspath
