@@ -358,3 +358,45 @@ val verifyDependencies = tasks.register("verifyDependencies") {
 if (providers.gradleProperty("recipeLibrary.failOnStaleDependencies").map { it.toBoolean() }.orElse(false).get()) {
     tasks.named("check") { dependsOn(verifyDependencies) }
 }
+
+// Recipe-scaffold subcommand wrappers. Shell out to `jbang` on PATH so users
+// can invoke the post-init subcommands as Gradle tasks rather than typing the
+// full JBang catalog reference. `init` stays JBang-only (no project = no
+// Gradle context). Pass arbitrary args via `--args="..."`, e.g.
+//   ./gradlew addRecipe --args="--name=Foo --type=java"
+//   ./gradlew doctor --args="--no-network"
+// The `recipeScaffoldRef` constant pins the upstream catalog reference; bump
+// here to track a specific tag (e.g. ".../v0.4.0") instead of `main`.
+abstract class RecipeScaffoldExec : Exec() {
+    @get:Internal
+    @get:Optional
+    @get:org.gradle.api.tasks.options.Option(option = "args",
+            description = "Args to pass to recipe-scaffold (whitespace-separated).")
+    abstract val passthroughArgs: Property<String>
+
+    init {
+        group = "recipe-scaffold"
+    }
+
+    override fun exec() {
+        passthroughArgs.orNull?.takeIf { it.isNotBlank() }?.let {
+            args(*it.trim().split(Regex("\\s+")).toTypedArray())
+        }
+        super.exec()
+    }
+}
+
+val recipeScaffoldRef = "recipe-scaffold@fiftiesHousewife/recipe-scaffold"
+
+listOf(
+        "addRecipe" to "add-recipe",
+        "verifyGates" to "verify-gates",
+        "upgradeSkills" to "upgrade-skills",
+        "upgradeBuildLogic" to "upgrade-build-logic",
+        "doctor" to "doctor"
+).forEach { (taskName, subcommand) ->
+    tasks.register<RecipeScaffoldExec>(taskName) {
+        description = "Wraps `recipe-scaffold $subcommand` via JBang. Pass args via --args=\"...\"."
+        commandLine("jbang", recipeScaffoldRef, subcommand)
+    }
+}

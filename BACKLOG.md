@@ -9,6 +9,10 @@ B-numbered and A-numbered items below are historical labels from a prior plannin
 
 ## Shipped
 
+### 2026-05-10 (build-logic Gradle task wrappers)
+
+- **Gradle task wrappers for post-init subcommands** — the `recipe-library` convention plugin now registers `addRecipe`, `verifyGates`, `upgradeSkills`, `upgradeBuildLogic`, and `doctor` as Gradle tasks under the `recipe-scaffold` group. Each is an `Exec` subclass (`RecipeScaffoldExec`) that shells out to `jbang recipe-scaffold@fiftiesHousewife/recipe-scaffold <subcommand>` on PATH and forwards `--args="…"` (whitespace-separated). `init` intentionally not wrapped: no project = no Gradle context. Shell-out form (no Maven Central publish needed); future migration to embedded `JavaExec` would be invisible to consumers because the task names + flags stay the same.
+
 ### 2026-05-10 (doctor subcommand)
 
 - **`doctor`** — sixth JBang subcommand. Drift + upgrade-path advisor. Reports CLI version, project dropfile version (if cwd is inside a scaffolded project), latest upstream tag (GitHub API call cached for 24h at `~/.cache/recipe-scaffold/latest-release.txt`), and a heuristic for install path (JBang script / JBang cached jar / fat jar / installDist / Gradle clone). Prints the right upgrade command for the detected path when drift is detected. `--no-network` flag for offline use. Falls back from `releases/latest` to `tags` so it works whether or not the maintainer has published a GitHub Release object. 6 new tests (3 doctor end-to-end + parameterized `stripV` + 2 `parseTagName`); total 79.
@@ -82,7 +86,7 @@ B-numbered and A-numbered items below are historical labels from a prior plannin
 ## Queued for next release
 
 - **Submit `recipe-scaffold` to the public JBang catalog** — PR an entry into [`jbangdev/jbang-catalog`](https://github.com/jbangdev/jbang-catalog)'s `jbang-catalog.json` referencing `fiftiesHousewife/recipe-scaffold`, so the alias is discoverable via `jbang catalog list jbangdev` and reachable as `recipe-scaffold@jbangdev`. Direct reference (`recipe-scaffold@fiftiesHousewife/recipe-scaffold`) already works; this is purely a discovery boost. Best done after a few tagged releases have settled; v0.3.0 is sufficient.
-- **build-logic Gradle tasks for post-init subcommands** — register `addRecipe`, `verifyGates`, `upgradeSkills` as Gradle tasks on the `recipe-library` convention plugin so consumers can do `./gradlew addRecipe --name=Foo --type=java` from inside a scaffolded project instead of typing the full `jbang recipe-scaffold@…` reference. `init` stays JBang-only (no project = no Gradle). Sequencing: ship the **shell-out form** first — task `exec`s `jbang recipe-scaffold@fiftiesHousewife/recipe-scaffold <subcommand> …` and forwards args via picocli's `@argfile` or task properties; ~30 lines of Kotlin in `recipe-library.gradle.kts`, no publication change, JBang stays a runtime dep. Later, if consumers want to drop JBang entirely, **publish `recipe-scaffold` to Maven Central** and switch the tasks to embedded `JavaExec` against a `recipeScaffold` configuration; same task names + flags so the migration is invisible. Bumps the publish-flow surface (currently nothing publishes), so weigh against demand.
+- **Publish `recipe-scaffold` to Maven Central** — only needed if consumers want to drop the JBang dependency. Today the Gradle task wrappers shell out to `jbang` on PATH; switching them to embedded `JavaExec` against a `recipeScaffold` configuration would require a published artifact. Same task names + flags so the migration would be invisible to consumers. Reopen on demand.
 
 ## Active
 

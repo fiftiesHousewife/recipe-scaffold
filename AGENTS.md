@@ -34,7 +34,7 @@ A reusable scaffold for new OpenRewrite recipe projects: build conventions, thre
 └── .github/workflows/ci.yml      # bash-scaffold + jbang-scaffold + harness + actionlint
 ```
 
-After `init`, the scaffolded project root holds a `.recipe-scaffold.yml` dropfile (`recipeScaffoldVersion`, `group`, `artifact`, `rootPackage`, `javaTargetMain`, `javaTargetTests`; optional `recipePackage` for projects that want recipes outside the default `<rootPackage>.recipes`). `add-recipe`, `verify-gates`, and `upgrade-skills` all walk upward from cwd looking for it.
+After `init`, the scaffolded project root holds a `.recipe-scaffold.yml` dropfile (`recipeScaffoldVersion`, `group`, `artifact`, `rootPackage`, `javaTargetMain`, `javaTargetTests`; optional `recipePackage` for projects that want recipes outside the default `<rootPackage>.recipes`). `add-recipe`, `verify-gates`, `upgrade-skills`, `upgrade-build-logic`, and `doctor` all walk upward from cwd looking for it.
 
 The `template/.claude/skills/` (ships to scaffolded users) vs the repo-level `.claude/skills/` (for working IN this repo) distinction matters; they are separate directories with different lifecycles.
 
@@ -82,6 +82,8 @@ jbang jbang/RecipeScaffold.java init --help
 jbang jbang/RecipeScaffold.java add-recipe --help
 jbang jbang/RecipeScaffold.java verify-gates --help
 jbang jbang/RecipeScaffold.java upgrade-skills --help
+jbang jbang/RecipeScaffold.java upgrade-build-logic --help
+jbang jbang/RecipeScaffold.java doctor --help
 ```
 
 JBang handles compilation, dep resolution (`//DEPS info.picocli:picocli:4.7.7`), and caching. CI uses the same flow via `jbangdev/setup-jbang@main`.

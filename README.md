@@ -282,6 +282,20 @@ The `recipe-library` convention plugin ships three opt-in gates. All default off
 | `./gradlew wrapper --gradle-version=9.4.1` | Bump the Gradle wrapper. |
 | `./gradlew wrapper --gradle-version=9.5.0 --distribution-type=bin` | Same, smaller download. |
 
+### Gradle wrappers for recipe-scaffold subcommands
+
+The convention plugin registers Gradle tasks that wrap the post-`init` `recipe-scaffold` subcommands by shelling out to `jbang` on PATH. Convenient when you're already inside the project.
+
+| Command | Equivalent |
+| --- | --- |
+| `./gradlew addRecipe --args="--name=Foo --type=java"` | `jbang recipe-scaffold@…/recipe-scaffold add-recipe --name=Foo --type=java` |
+| `./gradlew verifyGates` | `jbang recipe-scaffold@…/recipe-scaffold verify-gates` |
+| `./gradlew upgradeSkills [--args="--dry-run"]` | `jbang recipe-scaffold@…/recipe-scaffold upgrade-skills [--dry-run]` |
+| `./gradlew upgradeBuildLogic [--args="--dry-run"]` | `jbang recipe-scaffold@…/recipe-scaffold upgrade-build-logic [--dry-run]` |
+| `./gradlew doctor [--args="--no-network"]` | `jbang recipe-scaffold@…/recipe-scaffold doctor [--no-network]` |
+
+Pass arguments via `--args="..."` (whitespace-separated). `init` is intentionally not wrapped — there's no project to invoke Gradle from before scaffolding.
+
 ## Placeholders
 
 Two dialects share `{{name}}` syntax.
