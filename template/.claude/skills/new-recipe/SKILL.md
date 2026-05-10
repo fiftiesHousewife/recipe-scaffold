@@ -135,7 +135,7 @@ src/
 
 ## Where the build gates live
 
-If this project was scaffolded from `recipescaffold`, the reusable shape of the build (toolchain, source sets, test/integrationTest/smokeTest tasks, jacoco, javadoc, sign-onlyIf, pre-publish smokeTest gate) lives in [`build-logic/src/main/kotlin/recipe-library.gradle.kts`](../../../build-logic/src/main/kotlin/recipe-library.gradle.kts). Edit gates there, not in the project's `build.gradle.kts` — that file should stay narrow on identity (group/version) and POM coordinates.
+If this project was scaffolded from `recipe-scaffold`, the reusable shape of the build (toolchain, source sets, test/integrationTest/smokeTest tasks, jacoco, javadoc, sign-onlyIf, pre-publish smokeTest gate) lives in [`build-logic/src/main/kotlin/recipe-library.gradle.kts`](../../../build-logic/src/main/kotlin/recipe-library.gradle.kts). Edit gates there, not in the project's `build.gradle.kts` — that file should stay narrow on identity (group/version) and POM coordinates.
 
 Three opt-in quality gates flip on via `gradle.properties`:
 

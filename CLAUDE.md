@@ -1,4 +1,4 @@
-# Claude Code session notes — recipescaffold
+# Claude Code session notes — recipe-scaffold
 
 Vendor-neutral guidance — repo layout, placeholder dialects, conventions, how to run the scaffolder, the TestKit harness — lives in [`AGENTS.md`](./AGENTS.md). Read that first; the rest of this file is Claude-Code-specific.
 
@@ -7,7 +7,7 @@ Vendor-neutral guidance — repo layout, placeholder dialects, conventions, how 
 - [`AGENTS.md`](./AGENTS.md) — canonical project guidance.
 - [`README.md`](./README.md) — user-facing: install paths, subcommand reference, command cheatsheet.
 - [`BACKLOG.md`](./BACKLOG.md) — Shipped / Queued / Active / Parked.
-- [`JBANG_TEMPLATE_PLAN.md`](./JBANG_TEMPLATE_PLAN.md) — the source plan (Part A: review findings; Part B: scaffolder design).
+- [`CHANGELOG.md`](./CHANGELOG.md) — release log.
 
 ## Skills available in this session
 

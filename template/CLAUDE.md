@@ -13,11 +13,11 @@ Four committed project skills live at `.claude/skills/`. Their bodies are agent-
 | `recipe-testing` | Writing tests for a recipe: integration vs. unit split, `RewriteTest` + `TypeValidation.none()`, multi-source `rewriteRun`, `GradleProject` marker injection, matrix-test layout. |
 | `smoke-test` | Designing or extending the pre-release smoke-test procedure: `/tmp` project bootstrap, dryRun → Run → compile cycle, project-shape matrix, expected-outcomes tables, mavenLocal resolution check. |
 
-The skill files in `.claude/skills/` are version-controlled — treat them as part of the project, not personal tool config. When the upstream scaffolder improves a skill, run `recipescaffold upgrade-skills` (or pull the change in by hand).
+The skill files in `.claude/skills/` are version-controlled — treat them as part of the project, not personal tool config. When the upstream scaffolder improves a skill, run `recipe-scaffold upgrade-skills` (or pull the change in by hand).
 
 ## Drift check at session start
 
-This project was scaffolded by `recipescaffold` `v{{recipescaffoldVersion}}`. On your first action in a session, read the `recipescaffoldVersion` field of `.recipescaffold.yml` at the project root and compare it against the version above. If they differ, surface a one-line note recommending `recipescaffold upgrade-skills` (and `recipescaffold upgrade-build-logic` once it ships). No network call required — the comparison is purely local. Do not block work on the drift; just flag it once and move on.
+This project was scaffolded by `recipe-scaffold` `v{{recipeScaffoldVersion}}`. On your first action in a session, read the `recipeScaffoldVersion` field of `.recipe-scaffold.yml` at the project root and compare it against the version above. If they differ, surface a one-line note recommending `recipe-scaffold upgrade-skills` (and `recipe-scaffold upgrade-build-logic` once it ships). No network call required — the comparison is purely local. Do not block work on the drift; just flag it once and move on.
 
 ## Notes on collaboration
 

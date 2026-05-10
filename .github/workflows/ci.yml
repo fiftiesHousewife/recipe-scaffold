@@ -16,7 +16,7 @@ name: CI
 #
 # All three jobs install JDK 21 alongside JDK 25 because the scaffolded
 # project's smokeTest forks a child Gradle 8.14.3 that cannot host JDK 25.
-# The harness job also installs JDK 17 for the recipescaffold root build.
+# The harness job also installs JDK 17 for the recipe-scaffold root build.
 
 on:
   push:
@@ -94,7 +94,7 @@ jobs:
             --package=io.github.acme \
             --initial-version=0.1 \
             --recipe-name="Acme Recipes" \
-            --recipe-description="OpenRewrite recipes scaffolded from recipescaffold" \
+            --recipe-description="OpenRewrite recipes scaffolded from recipe-scaffold" \
             --github-org=acme \
             --github-repo=acme-rewrite-recipes \
             --author-id=acmebot \
@@ -161,7 +161,7 @@ jobs:
           tar -xzf /tmp/actionlint.tar.gz -C /tmp actionlint
           chmod +x /tmp/actionlint
           /tmp/actionlint -version
-      - name: Lint recipescaffold workflows
+      - name: Lint recipe-scaffold workflows
         run: /tmp/actionlint .github/workflows/*.yml
       - name: Scaffold a project so we can lint the shipped workflows post-substitution
         # No --verify: skip the gradle build, we only need the substituted
@@ -173,7 +173,7 @@ jobs:
             --artifact=acme-rewrite-recipes \
             --package=io.github.acme \
             --recipe-name="Acme Recipes" \
-            --recipe-description="OpenRewrite recipes scaffolded from recipescaffold" \
+            --recipe-description="OpenRewrite recipes scaffolded from recipe-scaffold" \
             --github-org=acme \
             --github-repo=acme-rewrite-recipes \
             --author-id=acmebot \

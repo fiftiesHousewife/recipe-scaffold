@@ -1,11 +1,11 @@
 
 
 
-# Backlog — recipescaffold
+# Backlog — recipe-scaffold
 
 This repo's own backlog. The scaffolded project gets its own `template/BACKLOG.md`; do not conflate.
 
-The B-numbered items track [`JBANG_TEMPLATE_PLAN.md`](./JBANG_TEMPLATE_PLAN.md) Part B; the A-numbered items track Part A (upstream OpenRewrite findings) and only appear here when they touch the template payload.
+B-numbered and A-numbered items below are historical labels from a prior planning doc; treat them as opaque tags.
 
 ## Shipped
 
@@ -22,7 +22,7 @@ The B-numbered items track [`JBANG_TEMPLATE_PLAN.md`](./JBANG_TEMPLATE_PLAN.md) 
 
 ### 2026-05-04 (upgrade-skills subcommand)
 
-- **`upgrade-skills`** — fourth JBang subcommand. Walks upward to find `.recipescaffold.yml` (or accepts `--directory`), locates upstream `template/.claude/skills/` (or accepts `--template-dir`), and replaces each skill subdir in the project's `.claude/skills/` with the upstream copy. Iterates only over upstream subdirs, so any user-added skill in the project is left alone. Supports `--dry-run` for preview. Tested locally: tampered SKILL.md overwritten cleanly; second run idempotent; error path (non-scaffolded directory) exits 2 with clean message. Refactor: `findTemplateDir`, `findProjectRoot`, and `deleteRecursively` were moved from per-subcommand private statics to top-level `RecipeScaffold` helpers, plus a new `copyDir` (cousin of Init's `copyTree` without the `.gradle`/`build`/`.idea` skip logic). Per-subcommand wrappers retained as thin delegates so the existing call sites are unchanged. Deviates from the BACKLOG-Parked verbiage of "`init --upgrade-skills` flag" — a separate subcommand is cleaner than gating most of init behind a flag.
+- **`upgrade-skills`** — fourth JBang subcommand. Walks upward to find `.recipe-scaffold.yml` (or accepts `--directory`), locates upstream `template/.claude/skills/` (or accepts `--template-dir`), and replaces each skill subdir in the project's `.claude/skills/` with the upstream copy. Iterates only over upstream subdirs, so any user-added skill in the project is left alone. Supports `--dry-run` for preview. Tested locally: tampered SKILL.md overwritten cleanly; second run idempotent; error path (non-scaffolded directory) exits 2 with clean message. Refactor: `findTemplateDir`, `findProjectRoot`, and `deleteRecursively` were moved from per-subcommand private statics to top-level `RecipeScaffold` helpers, plus a new `copyDir` (cousin of Init's `copyTree` without the `.gradle`/`build`/`.idea` skip logic). Per-subcommand wrappers retained as thin delegates so the existing call sites are unchanged. Deviates from the BACKLOG-Parked verbiage of "`init --upgrade-skills` flag" — a separate subcommand is cleaner than gating most of init behind a flag.
 
 ### 2026-05-04 (B11.3.2 — recipe-method-test.template)
 
@@ -30,7 +30,7 @@ The B-numbered items track [`JBANG_TEMPLATE_PLAN.md`](./JBANG_TEMPLATE_PLAN.md) 
 
 ### 2026-05-04 (B11.4 — verify-gates subcommand)
 
-- **B11.4** — `verify-gates` JBang subcommand. Walks upward from cwd looking for `.recipescaffold.yml` (or accepts `--directory`), validates the dropfile is present (refuses non-recipescaffold projects to keep the smokeTest assumption honest), then runs `./gradlew check integrationTest smokeTest` via `ProcessBuilder.inheritIO()` and forwards the exit code. The three tasks are listed explicitly so all run even when `check` is up-to-date — the user is asking "are the gates green right now," not "is anything stale." Reuses Init's `runGradle` helper, which was extracted to a top-level static `RecipeScaffold.runGradle(Path, List<String>)` so both Init's `--verify` flow and VerifyGates share the same wrapper invocation. Tested locally: exit 2 with clean error when no dropfile present; happy path begins gradle invocation correctly. Plan §B3 priority 3 — deferred git-init dependency lifted (B11.3.x has settled).
+- **B11.4** — `verify-gates` JBang subcommand. Walks upward from cwd looking for `.recipe-scaffold.yml` (or accepts `--directory`), validates the dropfile is present (refuses non-recipe-scaffold projects to keep the smokeTest assumption honest), then runs `./gradlew check integrationTest smokeTest` via `ProcessBuilder.inheritIO()` and forwards the exit code. The three tasks are listed explicitly so all run even when `check` is up-to-date — the user is asking "are the gates green right now," not "is anything stale." Reuses Init's `runGradle` helper, which was extracted to a top-level static `RecipeScaffold.runGradle(Path, List<String>)` so both Init's `--verify` flow and VerifyGates share the same wrapper invocation. Tested locally: exit 2 with clean error when no dropfile present; happy path begins gradle invocation correctly. Plan §B3 priority 3 — deferred git-init dependency lifted (B11.3.x has settled).
 
 ### 2026-05-04 (TestKit harness)
 
@@ -50,21 +50,21 @@ The B-numbered items track [`JBANG_TEMPLATE_PLAN.md`](./JBANG_TEMPLATE_PLAN.md) 
 
 ### 2026-05-04 (B11.3 session)
 
-- **B11.3** — `add-recipe` JBang subcommand. Args: `--name <RecipeName>`, `--type java` (initial; B11.3.1 added `scanning`), `--display-name`, `--description`, `--package`, `-d/--directory`, `--no-tests`, `--force`. Reads `.recipescaffold.yml` dropfile (walks upward from cwd if `--directory` not given), loads `snippets/recipe-class-java.template` + `recipe-test.template`, substitutes `{{package}}` / `{{recipeName}}` / `{{recipeDisplayName}}` / `{{recipeDescription}}`, writes to `src/main/java/<pkg>/recipes/<Name>.java` (+ test). Refuses to overwrite without `--force`; rejects non-PascalCase `--name`; rejects unsupported `--type`.
-- **B11.3 — dropfile** — `Init.call()` writes `.recipescaffold.yml` at the output root capturing `recipescaffoldVersion` (= `RecipeScaffold.VERSION`, bumped to `0.2.0`), `group`, `artifact`, `rootPackage`, `javaTargetMain`, `javaTargetTests`. Hand-rolled YAML, no extra deps. `tests/ci-smoke.sh` writes the same shape so the bash flow's output also feeds `add-recipe`.
+- **B11.3** — `add-recipe` JBang subcommand. Args: `--name <RecipeName>`, `--type java` (initial; B11.3.1 added `scanning`), `--display-name`, `--description`, `--package`, `-d/--directory`, `--no-tests`, `--force`. Reads `.recipe-scaffold.yml` dropfile (walks upward from cwd if `--directory` not given), loads `snippets/recipe-class-java.template` + `recipe-test.template`, substitutes `{{package}}` / `{{recipeName}}` / `{{recipeDisplayName}}` / `{{recipeDescription}}`, writes to `src/main/java/<pkg>/recipes/<Name>.java` (+ test). Refuses to overwrite without `--force`; rejects non-PascalCase `--name`; rejects unsupported `--type`.
+- **B11.3 — dropfile** — `Init.call()` writes `.recipe-scaffold.yml` at the output root capturing `recipeScaffoldVersion` (= `RecipeScaffold.VERSION`, bumped to `0.2.0`), `group`, `artifact`, `rootPackage`, `javaTargetMain`, `javaTargetTests`. Hand-rolled YAML, no extra deps. `tests/ci-smoke.sh` writes the same shape so the bash flow's output also feeds `add-recipe`.
 - **B11.3 — snippets** — `template/snippets/{recipe-class-java,recipe-test}.template` plus a `README.md` documenting the placeholder dialect. Lives under `template/` so the snippet directory ships into every scaffold AND `add-recipe` reads it from the user's project after scaffolding. Init substitutor and residual check both skip files under `<root>/snippets/` so the `{{…}}` markers survive scaffolding intact.
 - **B11.3 — CI** — both `bash-scaffold` and `jbang-scaffold` jobs now run `add-recipe SmokeRecipe` after the initial scaffold and re-run `./gradlew check`. `bash-scaffold` gains the `jbangdev/setup-jbang@main` step. Catches snippet-substitution regressions before they ship.
 
 ### 2026-05-04 (B11.2 session)
 
-- **B11.2** — JBang `Init` subcommand at `jbang/RecipeScaffold.java`. Picocli, single-file, `//DEPS info.picocli:picocli:4.7.7`, `--verify` runs `./gradlew check smokeTest` post-scaffold. Class renamed `recipescaffold` → `RecipeScaffold` for Java convention.
+- **B11.2** — JBang `Init` subcommand at `jbang/RecipeScaffold.java`. Picocli, single-file, `//DEPS info.picocli:picocli:4.7.7`, `--verify` runs `./gradlew check smokeTest` post-scaffold. Class renamed `recipe-scaffold` → `RecipeScaffold` for Java convention.
 - Repo-root CI at `.github/workflows/ci.yml`: parallel jobs run `tests/ci-smoke.sh` and `jbang init --verify` on every push/PR. JDK 21+25 installed; uses `jbangdev/setup-jbang@main`.
 - Template additions: `LICENSE` (Apache 2.0), `AGENTS.md` (canonical vendor-neutral agent guidance — `CLAUDE.md` is now a stub forwarding to it), `.editorconfig`, `.github/workflows/release.yml` (tag-triggered Maven Central publish), `.github/workflows/wrapper-validation.yml`, `.github/dependabot.yml`.
 - Smoke-test regression fixed:
   - `GradleRunner` exports `GRADLE_OPTS=-Dorg.gradle.java.home=<jdk21Home>` so nested Gradle 8.14.3's Kotlin DSL evaluator stays off JDK 25 (`gradle.properties` is parsed too late to help).
   - `integrationTest` source set drops `sourceSets.test.get().output` and adds `exclude("org.openrewrite", "rewrite-java-25")` on `integrationTestRuntimeClasspath` (mirrors upstream).
 - `template/.gradle/` removed and `.gitignore` already excluded — no longer ships in the scaffold tree.
-- Permissions sanitised: committed `.claude/settings.json` with pattern-matched allows for `tests/ci-smoke.sh`, `javac` of the JBang script, and `java -cp recipescaffold` invocations. `.claude/settings.local.json` reset to `{}`. `template/.claude/settings.json` ships `Bash(./gradlew *)` for scaffolded users.
+- Permissions sanitised: committed `.claude/settings.json` with pattern-matched allows for `tests/ci-smoke.sh`, `javac` of the JBang script, and `java -cp recipe-scaffold` invocations. `.claude/settings.local.json` reset to `{}`. `template/.claude/settings.json` ships `Bash(./gradlew *)` for scaffolded users.
 - Residual placeholder check tightened to `(?<!\$)\{\{[a-zA-Z][a-zA-Z0-9]*\}\}` (in both `tests/ci-smoke.sh` and the JBang script) so GitHub Actions `${{ secrets.X }}` expressions in `release.yml` don't false-positive.
 
 ### Earlier
@@ -73,8 +73,8 @@ The B-numbered items track [`JBANG_TEMPLATE_PLAN.md`](./JBANG_TEMPLATE_PLAN.md) 
 
 ## Queued for next release
 
-- **`upgrade-build-logic` subcommand** — modelled on `upgrade-skills`, but refreshes `build-logic/src/main/kotlin/recipe-library.gradle.kts` (and the matching `gradle/libs.versions.toml` additions) from the upstream template. Closes the gap exposed at the `v0.3.0` cut: the convention plugin is vendored into each scaffolded project, so existing consumers do not pick up upstream fixes by bumping a version pin — they have to manually copy the file. Same shape as `upgrade-skills`: walks upward to find `.recipescaffold.yml`, accepts `--directory` and `--template-dir`, supports `--dry-run`. ~30 LoC + test.
-- **`doctor` subcommand** — drift + upgrade-path advisor. Reads the running CLI's `RecipeScaffold.VERSION`, the project dropfile's `recipescaffoldVersion`, and the latest GitHub release tag (single API call, cached locally). Prints which install path the CLI is running from (heuristic: presence of `~/.jbang/bin/recipescaffold`, JBang catalog cache, `build/install/recipescaffold/`, etc.) and the exact upgrade command for that path. Also flags drift between the dropfile version and the running CLI so a project that was scaffolded with `v0.2.0` and is being driven by `v0.4.0` knows to run `upgrade-skills` + `upgrade-build-logic`. Replaces the manual upgrade table in the README. ~80 LoC + test.
+- **`upgrade-build-logic` subcommand** — modelled on `upgrade-skills`, but refreshes `build-logic/src/main/kotlin/recipe-library.gradle.kts` (and the matching `gradle/libs.versions.toml` additions) from the upstream template. Closes the gap exposed at the `v0.3.0` cut: the convention plugin is vendored into each scaffolded project, so existing consumers do not pick up upstream fixes by bumping a version pin — they have to manually copy the file. Same shape as `upgrade-skills`: walks upward to find `.recipe-scaffold.yml`, accepts `--directory` and `--template-dir`, supports `--dry-run`. ~30 LoC + test.
+- **`doctor` subcommand** — drift + upgrade-path advisor. Reads the running CLI's `RecipeScaffold.VERSION`, the project dropfile's `recipeScaffoldVersion`, and the latest GitHub release tag (single API call, cached locally). Prints which install path the CLI is running from (heuristic: presence of `~/.jbang/bin/recipe-scaffold`, JBang catalog cache, `build/install/recipe-scaffold/`, etc.) and the exact upgrade command for that path. Also flags drift between the dropfile version and the running CLI so a project that was scaffolded with `v0.2.0` and is being driven by `v0.4.0` knows to run `upgrade-skills` + `upgrade-build-logic`. Replaces the manual upgrade table in the README. ~80 LoC + test.
 
 ## Active
 

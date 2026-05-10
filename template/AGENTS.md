@@ -3,7 +3,7 @@
 Vendor-neutral project guidance for AI coding agents (Claude Code, Cursor, Aider, Cline, Copilot CLI, etc.). Claude Code reads `CLAUDE.md`, which forwards here for the canonical content.
 
 > **Template provenance.** This project was scaffolded from
-> `recipescaffold`. When the template upgrades and you want
+> `recipe-scaffold`. When the template upgrades and you want
 > to pull in changes (build-script fixes, smoke-runner improvements, new
 > skill content), see the README in that repo — there is no automatic sync.
 

@@ -1,6 +1,6 @@
 # Snippets — recipe-skeleton fragments
 
-Source-of-truth fragments for the `add-recipe` JBang subcommand. They get copied verbatim into every scaffolded project so `recipescaffold add-recipe MyRecipe` works the same in this repo's CI and in users' projects.
+Source-of-truth fragments for the `add-recipe` JBang subcommand. They get copied verbatim into every scaffolded project so `recipe-scaffold add-recipe MyRecipe` works the same in this repo's CI and in users' projects.
 
 ## Placeholder dialect
 

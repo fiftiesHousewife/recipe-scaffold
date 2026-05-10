@@ -1,9 +1,9 @@
 ---
 name: pre-push
-description: Run the local equivalents of every CI job before pushing to recipescaffold. Catches shellcheck SC2086 in workflow yaml, harness regressions from refactors that shifted reflection paths, and bash-scaffold breakage — three classes of failure that have each cost a CI cycle. Applies whenever you are about to `git push` a commit that touched `jbang/RecipeScaffold.java`, `template/`, `tests/ci-smoke.sh`, `src/test/java/`, `.github/workflows/`, `gradle/libs.versions.toml`, or `template/build-logic/`.
+description: Run the local equivalents of every CI job before pushing to recipe-scaffold. Catches shellcheck SC2086 in workflow yaml, harness regressions from refactors that shifted reflection paths, and bash-scaffold breakage — three classes of failure that have each cost a CI cycle. Applies whenever you are about to `git push` a commit that touched `jbang/RecipeScaffold.java`, `template/`, `tests/ci-smoke.sh`, `src/test/java/`, `.github/workflows/`, `gradle/libs.versions.toml`, or `template/build-logic/`.
 ---
 
-# Pre-push checklist for recipescaffold
+# Pre-push checklist for recipe-scaffold
 
 Run all three checks. Push only on green.
 

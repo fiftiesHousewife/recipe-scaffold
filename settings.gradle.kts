@@ -1,1 +1,1 @@
-rootProject.name = "recipescaffold"
+rootProject.name = "recipe-scaffold"

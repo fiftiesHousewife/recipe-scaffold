@@ -25,6 +25,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 ### Changed
 
+- **Project renamed `recipescaffold` → `recipe-scaffold`.** CLI command, JBang catalog alias, dropfile filename (now `.recipe-scaffold.yml`), dropfile key (`recipeScaffoldVersion`), `applicationName`, fat jar `archiveBaseName`, `installDist` launcher, and GitHub repo path all updated. The Java package `recipescaffold` and class `RecipeScaffold` are unchanged (Java identifiers cannot contain hyphens). v0.2.0 was never tagged, so the only consumer-visible effect is that the JBang invocation becomes `jbang recipe-scaffold@fiftiesHousewife/recipe-scaffold …`.
 - `Init` lost its private static helpers — promoted to package-private statics on `RecipeScaffold` so they are testable directly. `Init` is now ~150 lines (was ~280).
 - `AddRecipe.call()` factored into `writeRecipeFile` and `writeTestFile` helpers.
 - `readDropfile` promoted from private nested static to top-level.
@@ -33,7 +34,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 - File walkers (`deleteRecursively`, `copyDir`, `substituteIn`, `findResiduals`, `readDropfile`) reworked to `Files.walk`/`Files.lines` stream pipelines; `copyTree` keeps `SimpleFileVisitor` for `SKIP_SUBTREE`.
 - `Init.writeDropfile` rewritten using a Java text block.
 - README expanded with a subcommand-overview table, a six-walkthrough Examples section, a What-you-get aspect/ships table, and grouped References (OpenRewrite, JBang, picocli, Gradle, build & publishing tooling, this project).
-- `JBANG_TEMPLATE_PLAN.md` trimmed to the Part A audit (Part B all shipped).
+- `JBANG_NOTES.md` and `JBANG_TEMPLATE_PLAN.md` deleted (historical research / the original design plan; both fully superseded by README + BACKLOG + CHANGELOG).
 
 ### Fixed
 
@@ -50,18 +51,18 @@ To pull the fixes into an existing consumer:
 
 ```bash
 # from the consuming project root
-curl -fsSL "https://raw.githubusercontent.com/fiftiesHousewife/recipescaffold/v0.3.0/template/build-logic/src/main/kotlin/recipe-library.gradle.kts" \
+curl -fsSL "https://raw.githubusercontent.com/fiftiesHousewife/recipe-scaffold/v0.3.0/template/build-logic/src/main/kotlin/recipe-library.gradle.kts" \
   -o build-logic/src/main/kotlin/recipe-library.gradle.kts
 
 # also pull the matching libs.versions.toml additions (javax-annotation-api):
-curl -fsSL "https://raw.githubusercontent.com/fiftiesHousewife/recipescaffold/v0.3.0/template/gradle/libs.versions.toml" \
+curl -fsSL "https://raw.githubusercontent.com/fiftiesHousewife/recipe-scaffold/v0.3.0/template/gradle/libs.versions.toml" \
   -o gradle/libs.versions.toml
 ```
 
-A future `recipescaffold upgrade-build-logic` subcommand (queued in BACKLOG) will automate this in the same shape as `upgrade-skills`.
+A future `recipe-scaffold upgrade-build-logic` subcommand (queued in BACKLOG) will automate this in the same shape as `upgrade-skills`.
 
 ## [0.2.0] — 2026-05-04
 
-Initial public beta. JBang catalog at `jbang recipescaffold@fiftiesHousewife/recipescaffold`. Four subcommands (`init`, `add-recipe`, `verify-gates`, `upgrade-skills`); four recipe types (`java`, `scanning`, `yaml`, `refaster`); two test styles (`block`, `method`); five distribution paths (JBang catalog/direct, `./gradlew run`, `./gradlew installDist`, fat jar). CI exercises bash-scaffold, jbang-scaffold, in-repo TestKit harness, and actionlint.
+Initial public beta. JBang catalog at `jbang recipe-scaffold@fiftiesHousewife/recipe-scaffold`. Four subcommands (`init`, `add-recipe`, `verify-gates`, `upgrade-skills`); four recipe types (`java`, `scanning`, `yaml`, `refaster`); two test styles (`block`, `method`); five distribution paths (JBang catalog/direct, `./gradlew run`, `./gradlew installDist`, fat jar). CI exercises bash-scaffold, jbang-scaffold, in-repo TestKit harness, and actionlint.
 
 See [`BACKLOG.md`](./BACKLOG.md) under the 2026-05-04 Shipped entries for the per-subcommand granularity.

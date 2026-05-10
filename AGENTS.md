@@ -1,4 +1,4 @@
-# Agent guidance — recipescaffold
+# Agent guidance — recipe-scaffold
 
 Vendor-neutral project guidance for any AI coding agent (or human contributor) working on this repo. Tool-specific notes live in `CLAUDE.md` (Claude Code) or in equivalent files for other agents; the substantive content is here.
 
@@ -14,7 +14,7 @@ A reusable scaffold for new OpenRewrite recipe projects: build conventions, thre
 ├── AGENTS.md                     # this file — canonical project guidance
 ├── CLAUDE.md                     # tool-specific (Claude Code) stub forwarding here
 ├── BACKLOG.md                    # what's shipped + queued
-├── JBANG_TEMPLATE_PLAN.md        # the source plan (Part A: review findings; Part B: scaffolder design)
+├── CHANGELOG.md                  # release log
 ├── jbang-catalog.json            # JBang catalog entry
 ├── build.gradle.kts              # repo-root Gradle build (TestKit harness, fat jar, application plugin)
 ├── settings.gradle.kts
@@ -34,7 +34,7 @@ A reusable scaffold for new OpenRewrite recipe projects: build conventions, thre
 └── .github/workflows/ci.yml      # bash-scaffold + jbang-scaffold + harness + actionlint
 ```
 
-After `init`, the scaffolded project root holds a `.recipescaffold.yml` dropfile (`recipescaffoldVersion`, `group`, `artifact`, `rootPackage`, `javaTargetMain`, `javaTargetTests`; optional `recipePackage` for projects that want recipes outside the default `<rootPackage>.recipes`). `add-recipe`, `verify-gates`, and `upgrade-skills` all walk upward from cwd looking for it.
+After `init`, the scaffolded project root holds a `.recipe-scaffold.yml` dropfile (`recipeScaffoldVersion`, `group`, `artifact`, `rootPackage`, `javaTargetMain`, `javaTargetTests`; optional `recipePackage` for projects that want recipes outside the default `<rootPackage>.recipes`). `add-recipe`, `verify-gates`, and `upgrade-skills` all walk upward from cwd looking for it.
 
 The `template/.claude/skills/` (ships to scaffolded users) vs the repo-level `.claude/skills/` (for working IN this repo) distinction matters; they are separate directories with different lifecycles.
 
@@ -53,7 +53,7 @@ Two distinct dialects share the `{{name}}` syntax.
 | `{{authorId}}`, `{{authorName}}`, `{{authorEmail}}` | POM developer block |
 | `{{javaTargetMain}}`, `{{javaTargetTests}}` | `release` for compileJava and compileTestJava |
 | `{{rewritePluginVersion}}` | Snippet versions in template's docs |
-| `{{recipescaffoldVersion}}` | The CLI version that scaffolded the project. Burned into `template/CLAUDE.md` at init time so a Claude Code session can drift-check against the dropfile. |
+| `{{recipeScaffoldVersion}}` | The CLI version that scaffolded the project. Burned into `template/CLAUDE.md` at init time so a Claude Code session can drift-check against the dropfile. |
 | `__ROOT_PACKAGE__` | Literal directory marker — renamed at scaffold time |
 
 **Snippet-time placeholders** — substituted by `add-recipe`, only inside `template/snippets/*.template`:
@@ -86,20 +86,20 @@ jbang jbang/RecipeScaffold.java upgrade-skills --help
 
 JBang handles compilation, dep resolution (`//DEPS info.picocli:picocli:4.7.7`), and caching. CI uses the same flow via `jbangdev/setup-jbang@main`.
 
-Four other distribution paths exist for environments where JBang isn't available (corporate-managed images, air-gapped CI, etc.): `./gradlew run --args="..."`, `./gradlew installDist` (produces `build/install/recipescaffold/bin/recipescaffold`), `./gradlew jar` (fat jar), and the bash `tests/ci-smoke.sh` v0 fallback. See README for the full table.
+Four other distribution paths exist for environments where JBang isn't available (corporate-managed images, air-gapped CI, etc.): `./gradlew run --args="..."`, `./gradlew installDist` (produces `build/install/recipe-scaffold/bin/recipe-scaffold`), `./gradlew jar` (fat jar), and the bash `tests/ci-smoke.sh` v0 fallback. See README for the full table.
 
 Typical sequence for a fresh project:
 
 ```bash
 jbang jbang/RecipeScaffold.java init --group=… --artifact=… --package=… [...] -d ./acme-rewrite-recipes --verify
 cd acme-rewrite-recipes
-jbang <path-to-recipescaffold>/jbang/RecipeScaffold.java add-recipe --name RemoveStaleSuppression
+jbang <path-to-recipe-scaffold>/jbang/RecipeScaffold.java add-recipe --name RemoveStaleSuppression
 ./gradlew check
 ```
 
 ## TestKit harness
 
-`./gradlew test` runs the in-repo TestKit harness from `src/test/java/recipescaffold/`. Two test classes:
+`./gradlew test` runs the in-repo TestKit harness from `src/test/java/recipe-scaffold/`. Two test classes:
 
 - **`RecipeScaffoldUnitTest`** — pure-function tests for the helpers (`kebabCase`, `humanise`, `isPascalCase`, `applySubstitutions`, `Init.buildReplacements`).
 - **`ScaffoldHarnessTest`** — drives `Init` + `AddRecipe` (one cell per `--type` × `--test-style`) into a `@TempDir`, then runs `GradleRunner` against the resulting scaffolded project. Pattern: Initializr's `ProjectGeneratorTester` shape + Maven Archetype's `archetype:integration-test`, ported to Gradle TestKit.

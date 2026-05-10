@@ -4,8 +4,8 @@
 // build.gradle.kts only declares its own identity (group, version, POM).
 //
 // Edit this file to change the gates centrally. Every recipe library scaffolded
-// from recipescaffold inherits the same shape; if you fork the gates, do it
-// here so a future `recipescaffold upgrade-skills` style refresh has a single
+// from recipe-scaffold inherits the same shape; if you fork the gates, do it
+// here so a future `recipe-scaffold upgrade-skills` style refresh has a single
 // place to land.
 
 import com.github.benmanes.gradle.versions.updates.DependencyUpdatesTask

@@ -12,12 +12,12 @@ repositories {
 
 application {
     // The fat jar's Main-Class. Also drives `./gradlew run --args=...` and
-    // `./gradlew installDist`, which produces bin/recipescaffold and
-    // bin/recipescaffold.bat launcher scripts at
-    // build/install/recipescaffold/. Corporate-friendly path: clone +
+    // `./gradlew installDist`, which produces bin/recipe-scaffold and
+    // bin/recipe-scaffold.bat launcher scripts at
+    // build/install/recipe-scaffold/. Corporate-friendly path: clone +
     // ./gradlew installDist + run the script. No JBang or brew required.
     mainClass.set("recipescaffold.RecipeScaffold")
-    applicationName = "recipescaffold"
+    applicationName = "recipe-scaffold"
 }
 
 // No toolchain spec on purpose: the harness is a developer/CI tool, run
@@ -145,10 +145,10 @@ val downloadJbang by tasks.registering(Copy::class) {
     }
 }
 
-// Fat jar so non-JBang users can `java -jar build/libs/recipescaffold.jar init …`.
+// Fat jar so non-JBang users can `java -jar build/libs/recipe-scaffold.jar init …`.
 // Bundles picocli (the only runtime dep) so the jar is self-contained.
 tasks.jar {
-    archiveBaseName.set("recipescaffold")
+    archiveBaseName.set("recipe-scaffold")
     archiveVersion.set("")
     manifest {
         attributes["Main-Class"] = "recipescaffold.RecipeScaffold"

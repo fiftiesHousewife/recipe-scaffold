@@ -120,7 +120,7 @@ class RecipeScaffoldUnitTest {
                 .containsEntry("{{javaTargetMain}}", "17")
                 .containsEntry("{{javaTargetTests}}", "25")
                 .containsEntry("{{rewritePluginVersion}}", "7.30.0")
-                .containsEntry("{{recipescaffoldVersion}}", RecipeScaffold.VERSION)
+                .containsEntry("{{recipeScaffoldVersion}}", RecipeScaffold.VERSION)
                 .containsEntry(RecipeScaffold.MARKER_DIR, "io.github.acme");
     }
 
@@ -276,9 +276,9 @@ class RecipeScaffoldUnitTest {
         writeDropfile.setAccessible(true);
         writeDropfile.invoke(init, tmp);
 
-        String body = Files.readString(tmp.resolve(".recipescaffold.yml"));
+        String body = Files.readString(tmp.resolve(".recipe-scaffold.yml"));
         assertThat(body)
-                .contains("recipescaffoldVersion: \"" + RecipeScaffold.VERSION + "\"")
+                .contains("recipeScaffoldVersion: \"" + RecipeScaffold.VERSION + "\"")
                 .contains("group: \"io.github.acme\"")
                 .contains("artifact: \"acme-rewrite-recipes\"")
                 .contains("rootPackage: \"io.github.acme\"")
@@ -288,11 +288,11 @@ class RecipeScaffoldUnitTest {
 
     @Test
     void readDropfile_parsesQuotedAndUnquotedAndSkipsCommentsBlanks(@TempDir Path tmp) throws Exception {
-        Path file = tmp.resolve(".recipescaffold.yml");
+        Path file = tmp.resolve(".recipe-scaffold.yml");
         Files.writeString(file, String.join("\n",
                 "# leading comment",
                 "",
-                "recipescaffoldVersion: \"0.2.0\"",
+                "recipeScaffoldVersion: \"0.2.0\"",
                 "  group:    io.example  ",
                 "artifact: \"demo\"",
                 "rootPackage: io.example.demo",
@@ -307,7 +307,7 @@ class RecipeScaffoldUnitTest {
         Map<String, String> drop = RecipeScaffold.readDropfile(file);
 
         assertThat(drop)
-                .containsEntry("recipescaffoldVersion", "0.2.0")
+                .containsEntry("recipeScaffoldVersion", "0.2.0")
                 .containsEntry("group", "io.example")
                 .containsEntry("artifact", "demo")
                 .containsEntry("rootPackage", "io.example.demo")
@@ -354,7 +354,7 @@ class RecipeScaffoldUnitTest {
     @Test
     void addRecipe_failsWhenDropfileMissingRootPackage(@TempDir Path tmp) throws Exception {
         Path project = newSyntheticProject(tmp);
-        Files.writeString(project.resolve(".recipescaffold.yml"),
+        Files.writeString(project.resolve(".recipe-scaffold.yml"),
                 "group: io.example\nartifact: demo\n", StandardCharsets.UTF_8);
         ExecResult r = runScaffold(project, "add-recipe", "--name", "Foo");
         assertThat(r.exitCode).isEqualTo(3);
@@ -387,8 +387,8 @@ class RecipeScaffoldUnitTest {
     @Test
     void addRecipe_honoursRecipePackageFromDropfile(@TempDir Path tmp) throws Exception {
         Path project = newSyntheticProject(tmp);
-        Files.writeString(project.resolve(".recipescaffold.yml"), String.join("\n",
-                "recipescaffoldVersion: \"0.3.0\"",
+        Files.writeString(project.resolve(".recipe-scaffold.yml"), String.join("\n",
+                "recipeScaffoldVersion: \"0.3.0\"",
                 "group: \"io.example\"",
                 "artifact: \"demo\"",
                 "rootPackage: \"io.example.demo\"",
@@ -410,7 +410,7 @@ class RecipeScaffoldUnitTest {
     @Test
     void addRecipe_cliPackageOverridesDropfileRecipePackage(@TempDir Path tmp) throws Exception {
         Path project = newSyntheticProject(tmp);
-        Files.writeString(project.resolve(".recipescaffold.yml"), String.join("\n",
+        Files.writeString(project.resolve(".recipe-scaffold.yml"), String.join("\n",
                 "rootPackage: \"io.example.demo\"",
                 "recipePackage: \"io.example.demo.cleanup\"",
                 ""
@@ -455,22 +455,22 @@ class RecipeScaffoldUnitTest {
     void verifyGates_exits2WhenNoDropfile(@TempDir Path tmp) throws Exception {
         ExecResult r = runScaffold(tmp, "verify-gates", "--directory", tmp.toString());
         assertThat(r.exitCode).isEqualTo(2);
-        assertThat(r.stderr).contains(".recipescaffold.yml not found");
+        assertThat(r.stderr).contains(".recipe-scaffold.yml not found");
     }
 
     @Test
     void upgradeSkills_exits2WhenNoDropfile(@TempDir Path tmp) throws Exception {
         ExecResult r = runScaffold(tmp, "upgrade-skills", "--directory", tmp.toString());
         assertThat(r.exitCode).isEqualTo(2);
-        assertThat(r.stderr).contains(".recipescaffold.yml not found");
+        assertThat(r.stderr).contains(".recipe-scaffold.yml not found");
     }
 
     private static Path newSyntheticProject(Path tmp) throws Exception {
         Path project = tmp.resolve("synth");
         Files.createDirectories(project);
         copyTree(repoRoot().resolve("template/snippets"), project.resolve("snippets"));
-        Files.writeString(project.resolve(".recipescaffold.yml"), String.join("\n",
-                "recipescaffoldVersion: \"0.2.0\"",
+        Files.writeString(project.resolve(".recipe-scaffold.yml"), String.join("\n",
+                "recipeScaffoldVersion: \"0.2.0\"",
                 "group: \"io.example\"",
                 "artifact: \"demo\"",
                 "rootPackage: \"io.example.demo\"",

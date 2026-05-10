@@ -1,7 +1,7 @@
 {
-  "description": "Recipescaffold — OpenRewrite recipe project scaffolder.",
+  "description": "recipe-scaffold — OpenRewrite recipe project scaffolder.",
   "aliases": {
-    "recipescaffold": {
+    "recipe-scaffold": {
       "script-ref": "jbang/RecipeScaffold.java",
       "description": "Scaffold an OpenRewrite recipe project. Subcommands: init, add-recipe, verify-gates, upgrade-skills."
     }
