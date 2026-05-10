@@ -2,8 +2,12 @@ package {{package}};
 
 import org.junit.jupiter.api.Test;
 import org.openrewrite.config.Environment;
+import org.openrewrite.config.YamlResourceLoader;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
+
+import java.net.URI;
+import java.util.Properties;
 
 import static org.openrewrite.java.Assertions.java;
 
@@ -11,8 +15,13 @@ class {{recipeName}}Test implements RewriteTest {
 
     @Override
     public void defaults(final RecipeSpec spec) {
+        // Loading our specific manifest avoids the cost (and brittleness) of
+        // scanning the entire runtime classpath for META-INF/rewrite/*.yml.
         spec.recipe(Environment.builder()
-                .scanRuntimeClasspath()
+                .load(new YamlResourceLoader(
+                        getClass().getResourceAsStream("/META-INF/rewrite/{{recipeKebab}}.yml"),
+                        URI.create("classpath:/META-INF/rewrite/{{recipeKebab}}.yml"),
+                        new Properties()))
                 .build()
                 .activateRecipes("{{recipeId}}"));
     }

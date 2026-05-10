@@ -65,12 +65,25 @@ class ScaffoldHarnessTest {
         // because the proxy does not extend to deeply-nested Gradle JVMs.
         // -Dmaven.repo.local stays redirected so we don't pollute ~/.m2 with
         // the scaffolded project's publishMavenPublicationToMavenLocal output.
+        // Set HARNESS_OFFLINE=1 in env to repro CI-style failures without DNS:
+        // the inner Gradle then refuses network and surfaces actual build errors
+        // rather than UnknownHostException. Default is online so CI exercises
+        // a real cold build path.
+        List<String> args = new java.util.ArrayList<>();
+        args.add("-Dmaven.repo.local=" + mavenLocal);
+        // In-process Kotlin compile avoids the daemon-spawn permission issue
+        // some sandboxes hit when the daemon tries to write its temp file
+        // under ~/Library or /root.
+        args.add("-Dkotlin.compiler.execution.strategy=in-process");
+        if ("1".equals(System.getenv("HARNESS_OFFLINE"))) {
+            args.add("--offline");
+        }
+        args.add("--stacktrace");
+        args.add("check");
+
         BuildResult result = GradleRunner.create()
                 .withProjectDir(projectDir.toFile())
-                .withArguments(
-                        "-Dmaven.repo.local=" + mavenLocal,
-                        "--stacktrace",
-                        "check")
+                .withArguments(args)
                 .forwardOutput()
                 .build();
 

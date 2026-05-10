@@ -7,4 +7,5 @@ tags: []
 # List the recipes this composition runs. Examples:
 #   - org.openrewrite.java.format.AutoFormat
 #   - org.openrewrite.java.RemoveUnusedImports
-recipeList: []
+recipeList:
+  - org.openrewrite.java.RemoveUnusedImports
