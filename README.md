@@ -2,7 +2,7 @@
 
 Scaffold an [OpenRewrite](https://docs.openrewrite.org) recipe project with modern build conventions, three-tier test harnesses, and a pre-publish smoke gate that hard-blocks [Maven Central](https://central.sonatype.com) on a real downstream `./gradlew check` — plus a CLI that adds new recipes, runs the gate chain, and refreshes the bundled agent skills.
 
-> **Status: beta (2026-05-05).** All four recipe `--type` values (`java`, `scanning`, `yaml`, [`refaster`](https://errorprone.info/docs/refaster)), both `--test-style` variants (`block`, `method`), and four subcommands (`init`, `add-recipe`, `verify-gates`, `upgrade-skills`) shipped. CI exercises the full scaffold-and-build chain in three parallel jobs plus [actionlint](https://github.com/rhysd/actionlint). See [`BACKLOG.md`](./BACKLOG.md) for queued items.
+> **Status: `v0.3.0` (2026-05-10).** All four recipe `--type` values (`java`, `scanning`, `yaml`, [`refaster`](https://errorprone.info/docs/refaster)), both `--test-style` variants (`block`, `method`), four subcommands (`init`, `add-recipe`, `verify-gates`, `upgrade-skills`), and the `recipe-library` convention plugin shipped. CI exercises the full scaffold-and-build chain in four parallel jobs ([actionlint](https://github.com/rhysd/actionlint) + bash-scaffold + jbang-scaffold + in-repo TestKit harness). See [`CHANGELOG.md`](./CHANGELOG.md) for the release log and [`BACKLOG.md`](./BACKLOG.md) for queued items.
 
 Repo: <https://github.com/fiftiesHousewife/recipescaffold>
 
@@ -64,7 +64,7 @@ recipescaffold init --group=io.github.acme …
 **Pinning to a version.** Catalog refs default to `main`. To pin to a release tag:
 
 ```bash
-jbang recipescaffold@fiftiesHousewife/recipescaffold/v0.2.0 init …
+jbang recipescaffold@fiftiesHousewife/recipescaffold/v0.3.0 init …
 ```
 
 **JBang vs. fat jar — when to use which.** JBang wins when you want one-line install and short invocations. The fat jar (`./gradlew jar` → `java -jar …`) wins when you're embedding the scaffolder into another tool, shipping it into a Docker image, or running in environments where you can't `curl` install scripts. Both invoke the same compiled bytecode; choose by ergonomics.

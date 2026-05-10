@@ -48,7 +48,7 @@ import picocli.CommandLine.Option;
 )
 public class RecipeScaffold implements Runnable {
 
-    static final String VERSION = "0.2.0";
+    static final String VERSION = "0.3.0";
 
     static final String DROPFILE = ".recipescaffold.yml";
 

@@ -73,7 +73,7 @@ The B-numbered items track [`JBANG_TEMPLATE_PLAN.md`](./JBANG_TEMPLATE_PLAN.md) 
 
 ## Queued for next release
 
-- (none)
+- **`upgrade-build-logic` subcommand** — modelled on `upgrade-skills`, but refreshes `build-logic/src/main/kotlin/recipe-library.gradle.kts` (and the matching `gradle/libs.versions.toml` additions) from the upstream template. Closes the gap exposed at the `v0.3.0` cut: the convention plugin is vendored into each scaffolded project, so existing consumers do not pick up upstream fixes by bumping a version pin — they have to manually copy the file. Same shape as `upgrade-skills`: walks upward to find `.recipescaffold.yml`, accepts `--directory` and `--template-dir`, supports `--dry-run`. ~30 LoC + test.
 
 ## Active
 
