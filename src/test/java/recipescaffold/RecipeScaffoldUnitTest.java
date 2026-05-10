@@ -52,12 +52,12 @@ class RecipeScaffoldUnitTest {
     @ParameterizedTest
     @ValueSource(strings = {"foo", "fooBar", "1Foo", "Foo Bar", "Foo-Bar", "Foo_Bar", ""})
     void isPascalCase_rejectsInvalidIdentifiers(String name) {
-        assertThat(RecipeScaffold.isPascalCase(name)).isFalse();
+        assertThat(recipescaffold.RecipeScaffold.isPascalCase(name)).isFalse();
     }
 
     @Test
     void isPascalCase_rejectsNull() {
-        assertThat(RecipeScaffold.isPascalCase(null)).isFalse();
+        assertThat(recipescaffold.RecipeScaffold.isPascalCase(null)).isFalse();
     }
 
     @Test

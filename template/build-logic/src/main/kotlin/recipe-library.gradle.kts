@@ -56,6 +56,9 @@ dependencies {
     // @BeforeTemplate / @AfterTemplate come from Errorprone Refaster.
     "implementation"(lib("openrewrite-templating"))
     "annotationProcessor"(lib("openrewrite-templating"))
+    // javax.annotation.Generated is referenced by the Refaster processor's
+    // generated code; the JDK dropped it in 11+, so supply it ourselves.
+    "compileOnly"(lib("javax-annotation-api"))
     "compileOnly"(lib("errorprone-core")) {
         // Match moderneinc/rewrite-recipe-starter: Errorprone pulls in
         // auto-service annotations and a stale dataflow-errorprone that

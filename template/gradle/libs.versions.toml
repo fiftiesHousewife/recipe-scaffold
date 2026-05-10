@@ -9,6 +9,7 @@ junit = "6.1.0-RC1"
 assertj = "4.0.0-M1"
 jspecify = "1.0.0"
 lombok = "1.18.46"
+javax-annotation-api = "1.3.2"
 versions = "0.54.0"
 maven-publish = "0.36.0"
 spotbugs-plugin = "6.5.4"
@@ -45,6 +46,10 @@ jspecify = { module = "org.jspecify:jspecify", version.ref = "jspecify" }
 # Yes, an SLF4J-migration recipe project still uses Lombok internally — that's the
 # standard pattern in the OpenRewrite ecosystem (see moderneinc/rewrite-recipe-starter).
 lombok = { module = "org.projectlombok:lombok", version.ref = "lombok" }
+
+# javax.annotation.Generated — referenced by the Refaster annotation processor's
+# generated code. Removed from the JDK in 11+; supply it as a compile-only dep.
+javax-annotation-api = { module = "javax.annotation:javax.annotation-api", version.ref = "javax-annotation-api" }
 
 [plugins]
 openrewrite = { id = "org.openrewrite.rewrite", version.ref = "openrewrite" }

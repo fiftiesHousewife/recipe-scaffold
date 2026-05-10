@@ -9,6 +9,7 @@ import org.junit.jupiter.api.io.TempDir;
 import java.lang.reflect.Field;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Objects;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -32,7 +33,7 @@ class ScaffoldHarnessTest {
             @TempDir Path projectDir,
             @TempDir Path mavenLocal) throws Exception {
 
-        RecipeScaffold.Init init = new RecipeScaffold.Init();
+        recipescaffold.RecipeScaffold.Init init = new recipescaffold.RecipeScaffold.Init();
         setField(init, "group", "io.github.acme");
         setField(init, "artifact", "acme-rewrite-recipes");
         setField(init, "rootPackage", "io.github.acme");
@@ -73,17 +74,17 @@ class ScaffoldHarnessTest {
                 .forwardOutput()
                 .build();
 
-        assertThat(result.task(":check").getOutcome())
+        assertThat(Objects.requireNonNull(result.task(":check")).getOutcome())
                 .as("scaffolded project's check task")
                 .isIn(TaskOutcome.SUCCESS, TaskOutcome.UP_TO_DATE);
     }
 
     private static void addRecipe(Path projectDir, String name, String type, String testStyle) throws Exception {
-        RecipeScaffold.AddRecipe add = new RecipeScaffold.AddRecipe();
+        recipescaffold.RecipeScaffold.AddRecipe add = new recipescaffold.RecipeScaffold.AddRecipe();
         setField(add, "name", name);
         setField(add, "type", type);
         setField(add, "testStyle", testStyle);
-        RecipeScaffold.ProjectDirectoryMixin mixin = new RecipeScaffold.ProjectDirectoryMixin();
+        recipescaffold.RecipeScaffold.ProjectDirectoryMixin mixin = new recipescaffold.RecipeScaffold.ProjectDirectoryMixin();
         setField(mixin, "projectDir", projectDir);
         setField(add, "projectDirectory", mixin);
         assertThat(add.call())
