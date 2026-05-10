@@ -465,6 +465,74 @@ class RecipeScaffoldUnitTest {
         assertThat(r.stderr).contains(".recipe-scaffold.yml not found");
     }
 
+    @Test
+    void upgradeBuildLogic_exits2WhenNoDropfile(@TempDir Path tmp) throws Exception {
+        ExecResult r = runScaffold(tmp, "upgrade-build-logic", "--directory", tmp.toString());
+        assertThat(r.exitCode).isEqualTo(2);
+        assertThat(r.stderr).contains(".recipe-scaffold.yml not found");
+    }
+
+    @Test
+    void upgradeBuildLogic_exits3WhenTemplateDirHasNoBuildLogic(@TempDir Path tmp) throws Exception {
+        Path project = newSyntheticProject(tmp);
+        Path bogusTemplate = tmp.resolve("bogus-template");
+        Files.createDirectories(bogusTemplate);
+        Files.writeString(bogusTemplate.resolve("build.gradle.kts"), "// stub", StandardCharsets.UTF_8);
+
+        ExecResult r = runScaffold(tmp, "upgrade-build-logic",
+                "--directory", project.toString(),
+                "--template-dir", bogusTemplate.toString());
+
+        assertThat(r.exitCode).isEqualTo(3);
+        assertThat(r.stderr).contains("no build-logic/ under " + bogusTemplate);
+    }
+
+    @Test
+    void upgradeBuildLogic_dryRunReportsWithoutWriting(@TempDir Path tmp) throws Exception {
+        Path project = newSyntheticProject(tmp);
+        Path projectBuildLogic = project.resolve("build-logic");
+        Files.createDirectories(projectBuildLogic.resolve("src/main/kotlin"));
+        Path stalePlugin = projectBuildLogic.resolve("src/main/kotlin/recipe-library.gradle.kts");
+        Files.writeString(stalePlugin, "// stale, pre-upgrade", StandardCharsets.UTF_8);
+
+        ExecResult r = runScaffold(tmp, "upgrade-build-logic",
+                "--directory", project.toString(),
+                "--template-dir", repoRoot().resolve("template").toString(),
+                "--dry-run");
+
+        assertThat(r.exitCode).isZero();
+        assertThat(r.stdout).contains("would refresh");
+        assertThat(Files.readString(stalePlugin, StandardCharsets.UTF_8))
+                .as("dry-run must not modify the existing tree")
+                .isEqualTo("// stale, pre-upgrade");
+    }
+
+    @Test
+    void upgradeBuildLogic_replacesExistingTreeWithUpstream(@TempDir Path tmp) throws Exception {
+        Path project = newSyntheticProject(tmp);
+        Path projectBuildLogic = project.resolve("build-logic");
+        Files.createDirectories(projectBuildLogic.resolve("src/main/kotlin"));
+        Files.writeString(projectBuildLogic.resolve("src/main/kotlin/recipe-library.gradle.kts"),
+                "// stale", StandardCharsets.UTF_8);
+
+        ExecResult r = runScaffold(tmp, "upgrade-build-logic",
+                "--directory", project.toString(),
+                "--template-dir", repoRoot().resolve("template").toString());
+
+        assertThat(r.exitCode).isZero();
+        assertThat(r.stdout).contains("refreshed").contains("OK: build-logic/ refreshed");
+
+        String refreshed = Files.readString(
+                projectBuildLogic.resolve("src/main/kotlin/recipe-library.gradle.kts"),
+                StandardCharsets.UTF_8);
+        assertThat(refreshed)
+                .as("upstream content overwrote the stale plugin")
+                .doesNotContain("// stale")
+                .contains("Convention plugin for an OpenRewrite recipe library");
+        assertThat(Files.isRegularFile(projectBuildLogic.resolve("build.gradle.kts"))).isTrue();
+        assertThat(Files.isRegularFile(projectBuildLogic.resolve("settings.gradle.kts"))).isTrue();
+    }
+
     private static Path newSyntheticProject(Path tmp) throws Exception {
         Path project = tmp.resolve("synth");
         Files.createDirectories(project);
@@ -548,7 +616,8 @@ class RecipeScaffoldUnitTest {
             }
         }
         return args.length > 0 && (
-                "add-recipe".equals(args[0]) || "verify-gates".equals(args[0]) || "upgrade-skills".equals(args[0]));
+                "add-recipe".equals(args[0]) || "verify-gates".equals(args[0])
+                        || "upgrade-skills".equals(args[0]) || "upgrade-build-logic".equals(args[0]));
     }
 
     private static String[] withDirectory(String[] args, Path dir) {

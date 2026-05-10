@@ -43,7 +43,8 @@ import picocli.CommandLine.Option;
                 RecipeScaffold.Init.class,
                 RecipeScaffold.AddRecipe.class,
                 RecipeScaffold.VerifyGates.class,
-                RecipeScaffold.UpgradeSkills.class
+                RecipeScaffold.UpgradeSkills.class,
+                RecipeScaffold.UpgradeBuildLogic.class
         }
 )
 public class RecipeScaffold implements Runnable {
@@ -546,6 +547,56 @@ public class RecipeScaffold implements Runnable {
             deleteRecursively(target);
             copyDir(source, target);
             System.out.println("refreshed " + target);
+        }
+    }
+
+    @Command(
+            name = "upgrade-build-logic",
+            description = "Refresh build-logic/ in an existing scaffolded project.",
+            mixinStandardHelpOptions = true
+    )
+    static class UpgradeBuildLogic implements Callable<Integer> {
+
+        @Mixin
+        private ProjectDirectoryMixin projectDirectory = new ProjectDirectoryMixin();
+
+        @Option(names = "--template-dir",
+                description = "Override upstream template source. Default: walks upward from cwd looking for template/build.gradle.kts.")
+        private Path templateDir;
+
+        @Option(names = "--dry-run",
+                description = "Print what would change without modifying anything.")
+        private boolean dryRun;
+
+        @Override
+        public Integer call() throws Exception {
+            Path projectRoot = resolveProjectRoot(projectDirectory.projectDir());
+            if (projectRoot == null) {
+                return 2;
+            }
+
+            Path upstream = templateDir != null
+                    ? templateDir.toAbsolutePath().normalize()
+                    : findTemplateDir();
+            Path upstreamBuildLogic = upstream.resolve("build-logic");
+            if (!Files.isDirectory(upstreamBuildLogic)) {
+                System.err.println("FAIL: no build-logic/ under " + upstream);
+                System.err.println("pass --template-dir explicitly or run from a checkout of recipe-scaffold");
+                return 3;
+            }
+
+            Path projectBuildLogic = projectRoot.resolve("build-logic");
+            if (dryRun) {
+                System.out.println("would refresh " + projectBuildLogic);
+                System.out.println("OK: build-logic/ would be refreshed (dry-run)");
+                return 0;
+            }
+            deleteRecursively(projectBuildLogic);
+            copyDir(upstreamBuildLogic, projectBuildLogic);
+            System.out.println("refreshed " + projectBuildLogic);
+            System.out.println("note: gradle/libs.versions.toml is not refreshed; diff manually if `./gradlew check` reports missing catalog entries.");
+            System.out.println("OK: build-logic/ refreshed at " + projectBuildLogic);
+            return 0;
         }
     }
 

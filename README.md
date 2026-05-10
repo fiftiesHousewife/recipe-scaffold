@@ -119,6 +119,7 @@ After upgrading the CLI itself, **existing scaffolded projects** still need to r
 | [`add-recipe`](#add-recipe) | Drop a new recipe (and test) into an existing scaffolded project. | Every new recipe; works from any subdirectory. |
 | [`verify-gates`](#verify-gates) | Run `./gradlew check integrationTest smokeTest`. | Pre-push and pre-publish sanity check. |
 | [`upgrade-skills`](#upgrade-skills) | Refresh the project's `.claude/skills/` from the upstream copy. | After `recipe-scaffold` itself releases. |
+| [`upgrade-build-logic`](#upgrade-build-logic) | Refresh the project's vendored `build-logic/` from the upstream copy. | After upstream convention-plugin fixes. |
 
 `--help` on any subcommand lists every option.
 
@@ -198,6 +199,15 @@ jbang recipe-scaffold@fiftiesHousewife/recipe-scaffold upgrade-skills [--dry-run
 ```
 
 Replaces each subdirectory of the project's `.claude/skills/` with the corresponding upstream copy from `template/.claude/skills/`. Iterates only over upstream subdirectories, so any user-added skill is left alone. Accepts `--directory`, `--template-dir`, `--dry-run`.
+
+### `upgrade-build-logic`
+
+```bash
+cd acme-rewrite-recipes
+jbang recipe-scaffold@fiftiesHousewife/recipe-scaffold upgrade-build-logic [--dry-run]
+```
+
+Replaces the project's vendored `build-logic/` tree with the upstream copy from `template/build-logic/`. The whole tree is scaffold-managed, so the refresh is wholesale — don't keep local edits to `recipe-library.gradle.kts`. `gradle/libs.versions.toml` is **not** refreshed; if `./gradlew check` reports missing catalog entries after an upgrade, diff `template/gradle/libs.versions.toml` against your project's copy by hand. Accepts `--directory`, `--template-dir`, `--dry-run`.
 
 ## What you get in the scaffolded project
 

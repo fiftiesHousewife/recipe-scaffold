@@ -6,6 +6,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 ## [Unreleased]
 
+### Added
+
+- **`upgrade-build-logic` subcommand.** Walks upward to find `.recipe-scaffold.yml`, then replaces the project's vendored `build-logic/` tree with the upstream copy from `template/build-logic/`. Same shape as `upgrade-skills`: accepts `--directory`, `--template-dir`, `--dry-run`. Wholesale refresh (the whole tree is scaffold-managed). `gradle/libs.versions.toml` is intentionally not touched; if `./gradlew check` reports missing catalog entries, diff manually. Closes the manual `curl` step in the v0.3.0 migration block.
+
 ## [0.3.0] — 2026-05-10
 
 ### Added
