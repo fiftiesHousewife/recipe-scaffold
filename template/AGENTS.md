@@ -41,7 +41,7 @@ Before tagging and pushing a new version, run these in order. Skipping a step is
 6. **Commit + push** — one release commit is fine if the per-feature history is good. `git add` specific files, don't `-A`.
 7. **Publish**: `./gradlew publishAndReleaseToMavenCentral`. The `smokeTest` task is a hard `dependsOn` so the gate is structural, not operator discipline.
 8. **Tag**: `git tag v<version> && git push origin v<version>`.
-9. **Post-publish round-trip**: wait ~10 minutes for Maven Central propagation, then run the cell in [`SMOKE_TEST.md`](./SMOKE_TEST.md) to confirm the published GAV resolves from Central (not `mavenLocal`).
+9. **Post-publish round-trip**: tag-driven CI (`release.yml`) runs the `central-roundtrip` job automatically — wait for it to go green before announcing the release. For releases cut outside CI, run the manual cell in [`SMOKE_TEST.md`](./SMOKE_TEST.md).
 
 ## Coding standards (not covered by tools)
 

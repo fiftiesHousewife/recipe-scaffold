@@ -40,3 +40,63 @@ jobs:
           ORG_GRADLE_PROJECT_signingInMemoryKeyId: ${{ secrets.SIGNING_IN_MEMORY_KEY_ID }}
           ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_IN_MEMORY_KEY_PASSWORD }}
         run: ./gradlew publishAndReleaseToMavenCentral --no-configuration-cache
+
+  # Post-publish round-trip: scaffold a throwaway consumer that depends on the
+  # just-published GAV from Central (mavenLocal is intentionally absent), then
+  # run rewriteResolveDependencies. Retires the manual cell that used to live
+  # in SMOKE_TEST.md. Retries with backoff because Central propagation can
+  # lag the publish call by minutes.
+  central-roundtrip:
+    needs: publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: |
+            21
+            {{javaTargetTests}}
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Scaffold throwaway consumer
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          CONSUMER="${RUNNER_TEMP}/central-consumer"
+          mkdir -p "${CONSUMER}"
+          cp -r gradle gradlew "${CONSUMER}/"
+          cat > "${CONSUMER}/settings.gradle.kts" <<'SETTINGS'
+          rootProject.name = "central-roundtrip"
+          SETTINGS
+          cat > "${CONSUMER}/build.gradle.kts" <<BUILD
+          plugins {
+              java
+              id("org.openrewrite.rewrite") version "{{rewritePluginVersion}}"
+          }
+          repositories {
+              mavenCentral()
+          }
+          dependencies {
+              rewrite("{{group}}:{{artifact}}:${VERSION}")
+          }
+          rewrite {
+              activeRecipe("{{rootPackage}}.ExampleRecipe")
+          }
+          BUILD
+          echo "consumer build.gradle.kts:"
+          cat "${CONSUMER}/build.gradle.kts"
+      - name: Resolve from Central (retry on propagation lag)
+        working-directory: ${{ runner.temp }}/central-consumer
+        run: |
+          for delay in 0 300 300 300; do
+            if [ "${delay}" -gt 0 ]; then
+              echo "sleeping ${delay}s before retry"
+              sleep "${delay}"
+            fi
+            if ./gradlew rewriteResolveDependencies --refresh-dependencies --no-configuration-cache; then
+              echo "OK: resolved from Central"
+              exit 0
+            fi
+          done
+          echo "FAIL: could not resolve {{group}}:{{artifact}}:${GITHUB_REF_NAME#v} from Central after 4 attempts (~15 min)"
+          exit 1

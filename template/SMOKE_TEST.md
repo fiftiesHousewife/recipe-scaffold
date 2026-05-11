@@ -1,8 +1,8 @@
 # Pre-release smoke test
 
-The pre-publish gate is `./gradlew smokeTest`. It scaffolds a `/tmp` Gradle project per matrix cell, runs the recipe end-to-end via a nested Gradle process, and compiles the rewritten Java. Cells run in parallel (cap=3, see `src/smokeTest/resources/junit-platform.properties`). `publishAndReleaseToMavenCentral` structurally `dependsOn("smokeTest")`, so there is no path to Central that skips it.
+The pre-publish gate is `./gradlew smokeTest` — a matrix runner that scaffolds a `/tmp` Gradle project per cell, runs the recipe end-to-end via a nested Gradle process, and compiles the rewritten Java. `publishAndReleaseToMavenCentral` structurally `dependsOn("smokeTest")`, so there is no path to Central that skips it.
 
-This document covers the one cell the automated runner cannot reach: **post-publish round-trip from Maven Central**.
+If you publish via tag-driven CI (`.github/workflows/release.yml`), the `central-roundtrip` job exercises the post-publish check below automatically — wait for it to go green before announcing the release. **This file is the manual equivalent for releases cut outside CI.**
 
 ## Maven Central coordinates round-trip
 

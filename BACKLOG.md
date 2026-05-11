@@ -9,6 +9,10 @@ B-numbered and A-numbered items below are historical labels from a prior plannin
 
 ## Shipped
 
+### 2026-05-11 (post-publish Central round-trip CI job)
+
+- **`central-roundtrip` job** in `template/.github/workflows/release.yml`. Runs after `publish` succeeds: scaffolds a throwaway consumer project under `${RUNNER_TEMP}/`, copies the wrapper out of the recipe project, writes a minimal `build.gradle.kts` that depends on the just-published GAV (`{{group}}:{{artifact}}:${GITHUB_REF_NAME#v}`) from `mavenCentral()` only — `mavenLocal` intentionally absent — and runs `./gradlew rewriteResolveDependencies --refresh-dependencies`. Retries with 0/300/300/300s backoff to absorb Central propagation lag (≤15 min wall-clock). Lints clean post-substitution (`{{javaTargetTests}}` / `{{rewritePluginVersion}}` / `{{group}}` / `{{artifact}}` / `{{rootPackage}}` all resolved). `template/SMOKE_TEST.md` reframed as the manual fallback for releases cut outside CI; `template/AGENTS.md` step 9 updated to point at the CI job first.
+
 ### 2026-05-10 (build-logic Gradle task wrappers)
 
 - **Gradle task wrappers for post-init subcommands** — the `recipe-library` convention plugin now registers `addRecipe`, `verifyGates`, `upgradeSkills`, `upgradeBuildLogic`, and `doctor` as Gradle tasks under the `recipe-scaffold` group. Each is an `Exec` subclass (`RecipeScaffoldExec`) that shells out to `jbang recipe-scaffold@fiftiesHousewife/recipe-scaffold <subcommand>` on PATH and forwards `--args="…"` (whitespace-separated). `init` intentionally not wrapped: no project = no Gradle context. Shell-out form (no Maven Central publish needed); future migration to embedded `JavaExec` would be invisible to consumers because the task names + flags stay the same.
@@ -85,7 +89,6 @@ B-numbered and A-numbered items below are historical labels from a prior plannin
 
 ## Queued for next release
 
-- **Tag-driven post-publish Central round-trip CI job** in `template/.github/workflows/release.yml`. Wait ~10 minutes for Maven Central propagation after `publishAndReleaseToMavenCentral` succeeds, scaffold a throwaway `/tmp` consumer project, depend on the just-published GAV from Central (not `mavenLocal`), run `./gradlew rewriteResolveDependencies`. Retires the only cell currently in `template/SMOKE_TEST.md`. ~40 lines of YAML.
 - **Submit `recipe-scaffold` to the public JBang catalog** — PR an entry into [`jbangdev/jbang-catalog`](https://github.com/jbangdev/jbang-catalog)'s `jbang-catalog.json` referencing `fiftiesHousewife/recipe-scaffold`, so the alias is discoverable via `jbang catalog list jbangdev` and reachable as `recipe-scaffold@jbangdev`. Direct reference (`recipe-scaffold@fiftiesHousewife/recipe-scaffold`) already works; this is purely a discovery boost. Best done after a few tagged releases have settled; v0.3.0 is sufficient.
 - **Publish `recipe-scaffold` to Maven Central** — only needed if consumers want to drop the JBang dependency. Today the Gradle task wrappers shell out to `jbang` on PATH; switching them to embedded `JavaExec` against a `recipeScaffold` configuration would require a published artifact. Same task names + flags so the migration would be invisible to consumers. Reopen on demand.
 
